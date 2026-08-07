@@ -1,0 +1,11 @@
+version: "1.0"
+
+dependencies:
+
+  policy:
+    registry_approval_required: true
+    unknown_dependency: prohibited
+
+  security:
+    vulnerability_check_required: true
+    license_check_required: true

@@ -1,0 +1,70 @@
+version: "1.0"
+
+policy:
+  name: security-policy
+  scope: all-components
+
+security_principles:
+  security_first: true
+  zero_trust_external_services: true
+  least_privilege_required: true
+
+data_protection:
+  classification_required: true
+
+  T1:
+    name: public
+    restrictions:
+      - none
+
+  T2:
+    name: internal
+    restrictions:
+      - internal_access_only
+
+  T3:
+    name: sensitive
+    restrictions:
+      - external_transfer_prohibited
+      - unauthorized_access_prohibited
+
+secrets:
+  api_keys:
+    storage:
+      plain_text: prohibited
+
+  credentials:
+    source_code_storage: prohibited
+    logging: prohibited
+
+source_protection:
+  source_code_leakage: prohibited
+  strategy_leakage: prohibited
+  model_leakage: prohibited
+  market_data_leakage: prohibited
+
+external_services:
+  permission_audit_required: true
+  data_leakage_review_required: true
+  network_behavior_review_required: true
+
+external_ai:
+  untrusted_by_default: true
+
+  prohibited_usage:
+    - hft_core_generation
+    - execution_logic_generation
+    - risk_engine_generation
+    - trading_strategy_generation
+
+access_control:
+  ownership_verification_required: true
+  unauthorized_modification: prohibited
+
+audit:
+  security_events_logged: true
+  policy_violations_logged: true
+  validation_records_required: true
+
+failure_response:
+  security_failure_must_stop_pipeline: true

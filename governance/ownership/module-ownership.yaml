@@ -1,0 +1,7 @@
+version: "1.0"
+
+ownership:
+  type: module
+  ownership_required: true
+  cross_domain_modification: prohibited
+  unauthorized_changes: prohibited

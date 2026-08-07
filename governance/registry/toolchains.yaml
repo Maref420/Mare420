@@ -1,0 +1,11 @@
+version: "1.0"
+
+toolchains:
+
+  rust:
+    package_manager: cargo
+    compiler_validation_required: true
+
+  python:
+    package_manager: pip
+    environment_isolation_required: true

@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "name": "engine-contract",
+  "purpose": "Define communication boundaries between Atlas AI engines",
+
+  "rules": {
+    "versioned_contract_required": true,
+    "schema_validation_required": true,
+    "parity_validation_required": true,
+    "unknown_fields_rejected": true
+  },
+
+  "engines": {
+    "rust_engine": {
+      "role": [
+        "deterministic_processing",
+        "performance_systems",
+        "infrastructure",
+        "validation"
+      ],
+      "cannot_access": [
+        "python_internal_state"
+      ]
+    },
+
+    "python_engine": {
+      "role": [
+        "artificial_intelligence",
+        "agents",
+        "research",
+        "automation"
+      ],
+      "cannot_control": [
+        "time_critical_execution"
+      ]
+    }
+  },
+
+  "message": {
+    "required_fields": [
+      "contract_version",
+      "message_type",
+      "source_engine",
+      "timestamp",
+      "payload",
+      "metadata"
+    ],
+
+    "metadata": {
+      "required": [
+        "specification_id",
+        "policy_version",
+        "owner",
+        "validation_status"
+      ]
+    }
+  },
+
+  "validation": {
+    "before_consumption": true,
+    "invalid_message_action": "reject",
+    "traceability_required": true
+  }
+}

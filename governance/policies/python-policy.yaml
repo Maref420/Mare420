@@ -1,0 +1,59 @@
+version: "1.0"
+
+policy:
+  name: python-policy
+  engine: python
+  scope:
+    - artificial_intelligence
+    - machine_learning
+    - agents
+    - automation
+    - research
+    - analysis
+
+architecture:
+  ownership_required: true
+  specification_required: true
+  boundary_validation_required: true
+
+code_quality:
+  strict_typing_required: true
+  unused_imports: prohibited
+  dead_code: prohibited
+  unnecessary_dependencies: prohibited
+  unnecessary_complexity: prohibited
+
+dependency_management:
+  registry_only: true
+  unapproved_packages: prohibited
+  reproducible_environment_required: true
+
+runtime:
+  uncontrolled_resource_usage: prohibited
+  memory_growth_monitoring_required: true
+  failure_handling_required: true
+
+security:
+  secret_exposure: prohibited
+  sensitive_data_logging: prohibited
+  external_data_access_review_required: true
+
+testing:
+  unit_tests_required: true
+  integration_tests_required: true
+  validation_tests_required: true
+
+validation:
+  type_check_required: true
+  lint_check_required: true
+  test_execution_required: true
+
+artifact:
+  ownership_metadata_required: true
+  specification_reference_required: true
+  validation_report_required: true
+
+agent_rules:
+  self_modification: prohibited
+  governance_modification: prohibited
+  unauthorized_artifact_change: prohibited

@@ -1,0 +1,46 @@
+version: "1.0"
+
+policy:
+  name: global-policy
+  scope: all-engines
+
+principles:
+  architecture_first: true
+  specification_before_code: true
+  policy_before_generation: true
+  human_approval_required: true
+  no_placeholder_artifacts: true
+
+generation:
+  require_specification: true
+  require_validation_before_output: true
+  require_metadata_tracking: true
+
+validation:
+  architecture_validation: required
+  policy_validation: required
+  security_validation: required
+  schema_validation: required
+  test_validation: required
+
+artifact:
+  ownership_required: true
+  traceability_required: true
+  version_metadata_required: true
+
+ownership:
+  modification_without_owner_approval: prohibited
+  cross_domain_modification: prohibited
+
+dependencies:
+  hardcoded_dependencies: prohibited
+  registry_approved_dependencies_only: true
+
+execution:
+  hidden_module_coupling: prohibited
+  uncontrolled_resource_usage: prohibited
+
+failure:
+  logging_required: true
+  recovery_information_required: true
+  invalid_pipeline_must_stop: true

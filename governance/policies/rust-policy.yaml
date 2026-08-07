@@ -1,0 +1,61 @@
+version: "1.0"
+
+policy:
+  name: rust-policy
+  engine: rust
+  scope:
+    - performance_systems
+    - networking
+    - infrastructure
+    - deterministic_processing
+
+architecture:
+  ownership_required: true
+  specification_required: true
+  boundary_validation_required: true
+
+safety:
+  memory_safety_required: true
+  unsafe:
+    allowed: false
+    exception_requires_approval: true
+
+code_quality:
+  warnings_as_errors: true
+  unused_code: prohibited
+  dead_code: prohibited
+  unnecessary_dependencies: prohibited
+  unnecessary_complexity: prohibited
+
+error_handling:
+  unwrap:
+    allowed: false
+  expect:
+    allowed: false
+  explicit_error_handling_required: true
+
+performance:
+  overflow_protection_required: true
+  resource_limits_required: true
+  deterministic_execution_required: true
+  uncontrolled_memory_growth: prohibited
+
+dependencies:
+  registry_only: true
+  unapproved_crates: prohibited
+
+testing:
+  unit_tests_required: true
+  integration_tests_required: true
+  boundary_tests_required: true
+  stress_tests_required: true
+
+validation:
+  cargo_check_required: true
+  cargo_test_required: true
+  clippy_clean_required: true
+
+artifact:
+  ownership_metadata_required: true
+  specification_reference_required: true
+  validation_report_required: true
