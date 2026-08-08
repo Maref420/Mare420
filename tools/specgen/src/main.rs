@@ -1,6 +1,7 @@
 mod errors;
 mod metadata;
 mod module_types;
+mod validator;
 
 use clap::Parser;
 use std::path::PathBuf;
@@ -22,6 +23,8 @@ fn main() -> anyhow::Result<()> {
 
     let metadata = metadata::Metadata::load(&cli.metadata)?;
 
+    validator::validate(&metadata)?;
+
     println!("SpecGen");
     println!("Metadata : {}", cli.metadata.display());
     println!("Output   : {}", cli.output.display());
@@ -30,6 +33,7 @@ fn main() -> anyhow::Result<()> {
     println!("Language : {}", metadata.module.language);
     println!("Profile  : {}", metadata.module.profile);
     println!("Owner    : {}", metadata.module.owner);
+    println!("Valid    : yes");
 
     Ok(())
 }

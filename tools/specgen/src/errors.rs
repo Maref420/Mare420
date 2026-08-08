@@ -23,6 +23,10 @@ pub enum SpecgenError {
     /// The metadata content is not valid SpecGen TOML.
     #[error("failed to parse metadata file `{path}`: {message}")]
     MetadataParse { path: PathBuf, message: String },
+
+    /// Parsed metadata failed semantic validation.
+    #[error("metadata validation failed: {reason}")]
+    MetadataValidation { reason: String },
 }
 
 /// Result alias used across SpecGen modules.
