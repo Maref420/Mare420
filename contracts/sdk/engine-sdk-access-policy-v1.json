@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "type": "engine-sdk-access-policy",
+  "rules": {
+    "architect_engine": {
+      "allowed": [
+        "core-sdk",
+        "engine-sdk"
+      ]
+    },
+    "coder_engine": {
+      "allowed": [
+        "core-sdk",
+        "engine-sdk"
+      ]
+    },
+    "validator_engine": {
+      "allowed": [
+        "core-sdk",
+        "data-sdk"
+      ]
+    },
+    "reviewer_engine": {
+      "allowed": [
+        "core-sdk",
+        "security-sdk",
+        "telemetry-sdk"
+      ]
+    },
+    "orchestrator_engine": {
+      "allowed": [
+        "core-sdk",
+        "message-sdk",
+        "scheduler-sdk"
+      ]
+    }
+  },
+  "restrictions": {
+    "direct_service_access": false,
+    "bypass_contract": false,
+    "ownership_check_required": true,
+    "policy_validation_required": true
+  }
+}

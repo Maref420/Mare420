@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "type": "platform-sdk-contract",
+  "required": [
+    "service",
+    "request",
+    "response",
+    "metadata"
+  ],
+  "validation": {
+    "security_policy_required": true,
+    "audit_required": true
+  }
+}
