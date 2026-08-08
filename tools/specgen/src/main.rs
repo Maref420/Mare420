@@ -1,3 +1,7 @@
+mod errors;
+mod metadata;
+mod module_types;
+
 use clap::Parser;
 use std::path::PathBuf;
 
@@ -13,10 +17,19 @@ struct Cli {
     output: PathBuf,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
+
+    let metadata = metadata::Metadata::load(&cli.metadata)?;
 
     println!("SpecGen");
     println!("Metadata : {}", cli.metadata.display());
     println!("Output   : {}", cli.output.display());
+    println!("Module   : {}", metadata.module.name);
+    println!("Artifact : {}", metadata.module.artifact);
+    println!("Language : {}", metadata.module.language);
+    println!("Profile  : {}", metadata.module.profile);
+    println!("Owner    : {}", metadata.module.owner);
+
+    Ok(())
 }
