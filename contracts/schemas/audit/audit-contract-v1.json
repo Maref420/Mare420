@@ -1,0 +1,51 @@
+{
+  "version": "1.0",
+  "type": "audit-contract",
+  "purpose": "Define immutable audit records for Atlas AI controlled operations",
+
+  "required_fields": [
+    "contract_version",
+    "event_id",
+    "event_type",
+    "operation_id",
+    "agent_id",
+    "timestamp",
+    "action",
+    "resource",
+    "result",
+    "metadata"
+  ],
+
+  "rules": {
+    "schema_validation_required": true,
+    "immutable_record_required": true,
+    "agent_identity_required": true,
+    "operation_traceability_required": true,
+    "timestamp_validation_required": true,
+    "unknown_fields_rejected": true,
+    "sensitive_data_logging_prohibited": true
+  },
+
+  "storage": {
+    "persistent_storage_required": true,
+    "backend_agnostic": true,
+    "direct_database_access_forbidden": true
+  },
+
+  "ownership": {
+    "owner": "Agent Control Plane",
+    "unauthorized_modification": "prohibited"
+  },
+
+  "operations": [
+    "record",
+    "retrieve"
+  ],
+
+  "traceability": {
+    "event_id_required": true,
+    "operation_id_required": true,
+    "agent_id_required": true,
+    "timestamp_required": true
+  }
+}

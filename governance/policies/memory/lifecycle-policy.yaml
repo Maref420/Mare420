@@ -1,0 +1,74 @@
+version: "1.0"
+
+policy:
+  name: memory-lifecycle-policy
+  scope: memory-system
+
+principles:
+  validated_memory_only: true
+  controlled_forgetting_required: true
+  direct_storage_deletion_forbidden: true
+  agent_direct_deletion_forbidden: true
+
+validation:
+  pending_memory:
+    persistence_allowed: false
+  rejected_memory:
+    persistence_allowed: false
+  validated_memory:
+    persistence_allowed: true
+
+memory_types:
+  working:
+    purpose: temporary_context
+    forgetting:
+      allowed: true
+      automatic: allowed
+
+  episodic:
+    purpose: historical_experience
+    forgetting:
+      allowed: true
+      automatic: policy_controlled
+
+  semantic:
+    purpose: validated_knowledge
+    forgetting:
+      allowed: true
+      automatic: prohibited
+      explicit_policy_required: true
+
+  procedural:
+    purpose: learned_methods
+    forgetting:
+      allowed: true
+      automatic: prohibited
+      explicit_policy_required: true
+
+operations:
+  store:
+    validation_required: true
+    kernel_required: true
+
+  retrieve:
+    kernel_required: true
+
+  forget:
+    kernel_required: true
+    validation_required: true
+    audit_required: true
+
+security:
+  direct_database_access: prohibited
+  uncontrolled_deletion: prohibited
+  unauthorized_deletion: prohibited
+  sensitive_data_logging: prohibited
+
+traceability:
+  operation_id_required: true
+  agent_id_required: true
+  timestamp_required: true
+
+failure:
+  policy_violation_must_stop: true
+  invalid_request_must_be_rejected: true
