@@ -1,6 +1,7 @@
 import os
-from groq import Groq
+
 from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
 
@@ -10,7 +11,7 @@ class LLMClient:
         if not api_key:
             raise ValueError("GROQ_API_KEY is missing in .env file")
         self.client = Groq(api_key=api_key)
-        self.model = "llama-3.3-70b-versatile"
+        self.model = "openai/gpt-oss-120b"
 
     def generate_code(self, requirement: str, language: str) -> str:
         prompt = f"""
@@ -29,8 +30,8 @@ class LLMClient:
                 max_tokens=2048
             )
             return response.choices[0].message.content
-        except Exception as e:
-            raise RuntimeError(f"LLM Generation Failed: {str(e)}")
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError(f"LLM Generation Failed: {e!s}")
 
     def analyze_security(self, code: str) -> str:
         prompt = f"""

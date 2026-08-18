@@ -2,13 +2,11 @@
 Orchestrator for ATLAS AI Agent
 Coordinates the workflow between Governance, Generator, and Validator
 """
-from typing import Dict, Any, List
-from .models import Requirement, Specification, Artifact, ApprovalStatus
-from .governance import GovernanceEngine
 from .generator import GeneratorEngine
+from .governance import GovernanceEngine
+from .models import ApprovalStatus, Artifact, Requirement, Specification
 from .validator import ValidatorEngine
-from .config import settings
-import os
+
 
 class Orchestrator:
     """
@@ -20,7 +18,7 @@ class Orchestrator:
         self.generator = GeneratorEngine()
         self.validator = ValidatorEngine()
 
-    def run_pipeline(self, requirement: Requirement, architecture: str, modules: List[str]) -> Artifact:
+    def run_pipeline(self, requirement: Requirement, architecture: str, modules: list[str]) -> Artifact:
         """
         Execute the full code generation pipeline.
         """
@@ -50,12 +48,32 @@ class Orchestrator:
         )
 
         # 5. Validate Generated Code
-        for file_path in generated_files:
-            syntax_result = self.validator.check_syntax(file_path, requirement.language.value)
+        if requirement.language.value == "go":
+            syntax_result = self.validator.check_syntax(
+                requirement.target_folder,
+                requirement.language.value,
+            )
             artifact.test_results.append(syntax_result)
-            
-            security_findings = self.validator.run_security_scan(file_path)
-            artifact.security_findings.extend(security_findings)
+
+            for file_path in generated_files:
+                security_findings = self.validator.run_security_scan(
+                    file_path,
+                    requirement.language.value,
+                )
+                artifact.security_findings.extend(security_findings)
+        else:
+            for file_path in generated_files:
+                syntax_result = self.validator.check_syntax(
+                    file_path,
+                    requirement.language.value,
+                )
+                artifact.test_results.append(syntax_result)
+
+                security_findings = self.validator.run_security_scan(
+                    file_path,
+                    requirement.language.value,
+                )
+                artifact.security_findings.extend(security_findings)
 
         # 6. Governance Validation
         if not self.governance.validate_artifact(artifact):

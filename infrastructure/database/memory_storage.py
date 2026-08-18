@@ -1,13 +1,12 @@
 import os
 
-from supabase import Client, create_client
-
 from intelligence.memory_system.models.memory_record import (
     MemoryRecord,
     MemoryType,
     ValidationStatus,
 )
 from intelligence.memory_system.storage.interface import MemoryStorage
+from supabase import Client, create_client
 
 
 class DatabaseMemoryStorage(MemoryStorage):

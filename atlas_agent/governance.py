@@ -2,13 +2,20 @@
 Governance Engine for ATLAS AI Agent
 Enforces ATLAS AI Governance Rules
 """
-from typing import List, Dict, Any, Optional
-from datetime import datetime
-from .models import AuditLog, SecurityFinding, SecurityLevel, Artifact, Specification, ApprovalStatus
-from .config import settings
-import json
 import os
 import re
+from typing import Any
+
+from .config import settings
+from .models import (
+    ApprovalStatus,
+    Artifact,
+    AuditLog,
+    SecurityFinding,
+    SecurityLevel,
+    Specification,
+)
+
 
 class GovernanceEngine:
     """
@@ -16,13 +23,13 @@ class GovernanceEngine:
     """
 
     def __init__(self):
-        self.audit_logs: List[AuditLog] = []
+        self.audit_logs: list[AuditLog] = []
         self._ensure_logs_dir()
 
     def _ensure_logs_dir(self):
         os.makedirs(settings.logs_dir, exist_ok=True)
 
-    def log_audit(self, action: str, component: str, details: Dict[str, Any] = None, result: str = "success", error: str = None):
+    def log_audit(self, action: str, component: str, details: dict[str, Any] | None = None, result: str = "success", error: str | None = None):
         log_entry = AuditLog(
             action=action,
             component=component,
@@ -36,7 +43,7 @@ class GovernanceEngine:
         with open(log_file, "a") as f:
             f.write(f"{log_entry.timestamp} | {action} | {component} | {result} | {error or ''}\n")
 
-    def check_policy(self, policy_name: str, context: Dict[str, Any]) -> bool:
+    def check_policy(self, policy_name: str, context: dict[str, Any]) -> bool:
         self.log_audit("policy_check", "governance", {"policy": policy_name, "context": str(context)})
 
         if policy_name == "architecture_first":
@@ -47,8 +54,7 @@ class GovernanceEngine:
             if not context.get("specification"):
                 self.log_audit("policy_failed", "governance", {"policy": policy_name}, result="failed", error="Missing specification")
                 return False
-        elif policy_name == "security_first":
-            if not context.get("security_scan"):
+        elif policy_name == "security_first" and not context.get("security_scan"):
                 self.log_audit("policy_failed", "governance", {"policy": policy_name}, result="failed", error="Missing security scan")
                 return False
 
@@ -67,7 +73,7 @@ class GovernanceEngine:
 
         return True
 
-    def scan_for_secrets(self, content: str, file_path: str) -> List[SecurityFinding]:
+    def scan_for_secrets(self, content: str, file_path: str) -> list[SecurityFinding]:
         findings = []
         for pattern in settings.secret_patterns:
             if re.search(pattern, content):

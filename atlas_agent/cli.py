@@ -3,8 +3,10 @@ CLI Interface for ATLAS AI Agent
 """
 import argparse
 import sys
-from .models import Requirement, Language
+
+from .models import Language, Requirement
 from .orchestrator import Orchestrator
+
 
 def main():
     parser = argparse.ArgumentParser(description="ATLAS AI Agent - Governance-Driven Code Generation")
@@ -35,6 +37,6 @@ def main():
             print("\n❌ Pipeline rejected.")
             sys.exit(1)
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"\n❌ Error: {e}")
         sys.exit(1)

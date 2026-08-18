@@ -19,3 +19,13 @@ languages:
       - machine_learning
       - automation
       - research
+
+  go:
+    status: approved
+    engine: go_engine
+    purpose:
+      - backend_services
+      - networking
+      - infrastructure
+      - concurrent_systems
+      - developer_tooling

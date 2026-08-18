@@ -1,7 +1,6 @@
-from pathlib import Path
 import json
 import unittest
-
+from pathlib import Path
 
 CONTRACT_PATH = Path(
     "contracts/schemas/audit/audit-contract-v1.json"

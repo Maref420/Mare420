@@ -1,8 +1,7 @@
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 import yaml
-
 
 POLICY_PATH = Path(
     "governance/policies/memory/lifecycle-policy.yaml"

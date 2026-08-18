@@ -1,10 +1,12 @@
 """
 Data Models for ATLAS AI Agent
 """
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from enum import Enum
 from datetime import datetime
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
+
 
 class Language(str, Enum):
     PYTHON = "python"
@@ -27,23 +29,23 @@ class Requirement(BaseModel):
     language: Language
     project_name: str
     target_folder: str
-    additional_rules: List[str] = []
-    constraints: Dict[str, Any] = {}
+    additional_rules: list[str] = []
+    constraints: dict[str, Any] = {}
 
 class Specification(BaseModel):
     requirement: Requirement
     architecture: str
-    modules: List[Dict[str, Any]]
-    dependencies: List[str]
-    approved_by: Optional[str] = None
-    approved_at: Optional[datetime] = None
+    modules: list[dict[str, Any]]
+    dependencies: list[str]
+    approved_by: str | None = None
+    approved_at: datetime | None = None
 
 class SecurityFinding(BaseModel):
     severity: SecurityLevel
     category: str
     message: str
     file_path: str
-    line_number: Optional[int] = None
+    line_number: int | None = None
     suggestion: str = ""
 
 class TestResult(BaseModel):
@@ -51,23 +53,23 @@ class TestResult(BaseModel):
     passed: bool
     duration_ms: float
     output: str = ""
-    errors: List[str] = []
+    errors: list[str] = []
 
 class Artifact(BaseModel):
     requirement: Requirement
-    specification: Optional[Specification] = None
-    generated_files: List[str] = []
-    dependencies: Dict[str, str] = {}
-    security_findings: List[SecurityFinding] = []
-    test_results: List[TestResult] = []
+    specification: Specification | None = None
+    generated_files: list[str] = []
+    dependencies: dict[str, str] = {}
+    security_findings: list[SecurityFinding] = []
+    test_results: list[TestResult] = []
     status: ApprovalStatus = ApprovalStatus.PENDING
     timestamp: datetime = Field(default_factory=datetime.now)
-    temp_dir: Optional[str] = None
+    temp_dir: str | None = None
 
 class AuditLog(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
     action: str
     component: str
-    details: Dict[str, Any] = {}
+    details: dict[str, Any] = {}
     result: str = "success"
-    error: Optional[str] = None
+    error: str | None = None

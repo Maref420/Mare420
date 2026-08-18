@@ -1,9 +1,8 @@
 import os
 
-from supabase import Client, create_client
-
 from intelligence.agent_control_plane.audit.interface import AuditSink
 from intelligence.agent_control_plane.audit.models import AuditRecord
+from supabase import Client, create_client
 
 
 class DatabaseAuditSink(AuditSink):

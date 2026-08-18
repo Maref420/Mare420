@@ -1,7 +1,9 @@
 import os
 import re
-from typing import List, Dict, Any
+from typing import Any
+
 from .llm_client import LLMClient
+
 
 class GeneratorEngine:
     def __init__(self):
@@ -12,7 +14,7 @@ class GeneratorEngine:
         code = re.sub(r'^```\s*$', '', code, flags=re.MULTILINE)
         return code.strip()
 
-    def generate_project(self, spec: Any, target_dir: str) -> List[str]:
+    def generate_project(self, spec: Any, target_dir: str) -> list[str]:
         os.makedirs(target_dir, exist_ok=True)
         generated_files = []
 
@@ -27,20 +29,28 @@ class GeneratorEngine:
         Architecture: {architecture}
         Modules: {', '.join([m.get('name', '') for m in spec.modules])}
 
-        Provide ONLY the raw code without markdown formatting or explanations.
+        Provide ONLY the complete contents of main source file. Do not include go.mod, other files, markdown, filenames, or explanations. The generated main source must be self-contained.
         """
 
         try:
             code_response = self.llm.generate_code(prompt, lang)
             clean_code = self._clean_code(code_response)
-            
+
             main_file = f"main.{self._get_extension(lang)}"
             main_path = os.path.join(target_dir, main_file)
-            with open(main_path, "w") as f:
-                f.write(clean_code)
+
+            with open(main_path, "w", encoding="utf-8") as f:
+                f.write(clean_code.rstrip() + "\n")
+
             generated_files.append(main_path)
-        except Exception as e:
-            raise RuntimeError(f"Code generation failed: {str(e)}")
+
+            if lang == "go":
+                go_mod_path = os.path.join(target_dir, "go.mod")
+                with open(go_mod_path, "w", encoding="utf-8") as f:
+                    f.write(f"module {project_name}\n\ngo 1.22\n")
+                generated_files.append(go_mod_path)
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError(f"Code generation failed: {e!s}")
 
         return generated_files
 

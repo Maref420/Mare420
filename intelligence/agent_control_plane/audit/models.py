@@ -6,7 +6,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class AuditEventType(StrEnum):
+    MEMORY_RETRIEVE = "memory.retrieve"
+    MEMORY_STORE = "memory.store"
     MEMORY_FORGET = "memory.forget"
+    COMMUNICATION_SEND = "communication.send"
 
 
 class AuditAction(StrEnum):

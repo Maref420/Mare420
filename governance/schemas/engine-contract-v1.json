@@ -33,6 +33,23 @@
       "cannot_control": [
         "time_critical_execution"
       ]
+    },
+
+    "go_engine": {
+      "role": [
+        "backend_services",
+        "networking",
+        "infrastructure",
+        "concurrent_systems",
+        "developer_tooling"
+      ],
+      "cannot_access": [
+        "python_internal_state",
+        "rust_internal_state"
+      ],
+      "cannot_control": [
+        "time_critical_execution"
+      ]
     }
   },
 
