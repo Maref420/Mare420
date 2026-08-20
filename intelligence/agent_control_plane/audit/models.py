@@ -10,6 +10,7 @@ class AuditEventType(StrEnum):
     MEMORY_STORE = "memory.store"
     MEMORY_FORGET = "memory.forget"
     COMMUNICATION_SEND = "communication.send"
+    SCHEDULER_TASK = "scheduler.task"
 
 
 class AuditAction(StrEnum):

@@ -1,5 +1,14 @@
+from datetime import datetime, timezone
 from typing import ClassVar
+from uuid import uuid4
 
+from intelligence.agent_control_plane.audit.interface import AuditSink
+from intelligence.agent_control_plane.audit.models import (
+    AuditAction,
+    AuditEventType,
+    AuditRecord,
+    AuditResult,
+)
 from intelligence.agent_control_plane.identity.models import AgentStatus
 from intelligence.agent_control_plane.lifecycle.engine import AgentLifecycleEngine
 from intelligence.agent_control_plane.registry.registry import AgentRegistry
@@ -26,16 +35,19 @@ class AgentScheduler:
         registry: AgentRegistry,
         lifecycle: AgentLifecycleEngine,
         resources: SchedulerResources,
+        audit_sink: AuditSink,
     ) -> None:
         self._registry = registry
         self._lifecycle = lifecycle
         self._resources = resources
+        self._audit_sink = audit_sink
         self._tasks: dict[str, AgentTask] = {}
 
     def submit(self, task: AgentTask) -> AgentTask:
         if task.task_id in self._tasks:
             raise ValueError("Task is already registered.")
-
+        if task.status is not TaskStatus.QUEUED:
+            raise ValueError("Only queued tasks may be submitted.")
         identity = self._registry.get(task.agent_id)
         if identity is None:
             raise PermissionError("Unknown Agent.")
@@ -50,6 +62,13 @@ class AgentScheduler:
             raise RuntimeError("Insufficient scheduler resources.")
 
         self._tasks[task.task_id] = task
+
+        self._audit(
+            action=AuditAction.REQUESTED,
+            result=AuditResult.SUCCESS,
+            task=task,
+        )
+
         return task
 
     def next_task(self) -> AgentTask | None:
@@ -96,6 +115,13 @@ class AgentScheduler:
 
         updated = task.model_copy(update={"status": TaskStatus.RUNNING})
         self._tasks[task_id] = updated
+
+        self._audit(
+            action=AuditAction.REQUESTED,
+            result=AuditResult.SUCCESS,
+            task=updated,
+        )
+
         return updated
 
     def complete(self, task_id: str) -> AgentTask:
@@ -106,6 +132,28 @@ class AgentScheduler:
 
     def cancel(self, task_id: str) -> AgentTask:
         return self._finish(task_id, TaskStatus.CANCELLED)
+
+    def _audit(
+        self,
+        *,
+        action: AuditAction,
+        result: AuditResult,
+        task: AgentTask,
+    ) -> None:
+        self._audit_sink.record(
+            AuditRecord(
+                contract_version="1.0",
+                event_id=str(uuid4()),
+                event_type=AuditEventType.SCHEDULER_TASK,
+                operation_id=task.task_id,
+                agent_id=task.agent_id,
+                timestamp=datetime.now(timezone.utc),
+                action=action,
+                resource=task.task_id,
+                result=result,
+                metadata={},
+            )
+        )
 
     def get(self, task_id: str) -> AgentTask | None:
         if not task_id:
@@ -138,4 +186,18 @@ class AgentScheduler:
 
         updated = task.model_copy(update={"status": status})
         self._tasks[task_id] = updated
+
+        if status is TaskStatus.FAILED:
+            self._audit(
+                action=AuditAction.FAILED,
+                result=AuditResult.FAILURE,
+                task=updated,
+            )
+        else:
+            self._audit(
+                action=AuditAction.COMPLETED,
+                result=AuditResult.SUCCESS,
+                task=updated,
+            )
+
         return updated
