@@ -55,9 +55,37 @@ class AgentCommunicationEngine:
             )
         )
 
-    def send(self, message: AgentMessage) -> AgentMessage:
+    def create(self, message: AgentMessage) -> AgentMessage:
         if message.message_id in self._messages:
             raise ValueError("Message is already registered.")
+
+        if message.status is not MessageStatus.CREATED:
+            raise ValueError("Only created messages may be registered.")
+
+        self._messages[message.message_id] = message
+        return message
+
+    def send(
+        self,
+        message: AgentMessage | str,
+    ) -> AgentMessage:
+        if isinstance(message, str):
+            registered = self.get(message)
+
+            if registered is None:
+                raise KeyError("Unknown message.")
+
+            if registered.status is not MessageStatus.CREATED:
+                raise ValueError("Only created messages may be sent.")
+
+            message = registered
+        elif message.message_id in self._messages:
+            registered = self._messages[message.message_id]
+
+            if registered.status is not MessageStatus.CREATED:
+                raise ValueError("Only created messages may be sent.")
+
+            message = registered
 
         self._audit(
             message=message,
@@ -144,4 +172,11 @@ class AgentCommunicationEngine:
             update={"status": MessageStatus.REJECTED}
         )
         self._messages[message_id] = rejected
+
+        self._audit(
+            message=rejected,
+            action=AuditAction.FAILED,
+            result=AuditResult.FAILURE,
+        )
+
         return rejected

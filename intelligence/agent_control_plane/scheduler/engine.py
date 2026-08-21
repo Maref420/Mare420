@@ -45,21 +45,27 @@ class AgentScheduler:
 
     def submit(self, task: AgentTask) -> AgentTask:
         if task.task_id in self._tasks:
+            self._audit_rejection(task)
             raise ValueError("Task is already registered.")
         if task.status is not TaskStatus.QUEUED:
+            self._audit_rejection(task)
             raise ValueError("Only queued tasks may be submitted.")
+
         identity = self._registry.get(task.agent_id)
         if identity is None:
+            self._audit_rejection(task)
             raise PermissionError("Unknown Agent.")
 
         if identity.status not in {
             AgentStatus.READY,
             AgentStatus.RUNNING,
         }:
+            self._audit_rejection(task)
             raise PermissionError("Agent is not schedulable.")
 
-        if task.resource_units > self._resources.available:
-            raise RuntimeError("Insufficient scheduler resources.")
+        if task.resource_units > self._resources.capacity:
+            self._audit_rejection(task)
+            raise RuntimeError("Task exceeds scheduler capacity.")
 
         self._tasks[task.task_id] = task
 
@@ -93,19 +99,23 @@ class AgentScheduler:
         task = self._get(task_id)
 
         if task.status is not TaskStatus.QUEUED:
+            self._audit_rejection(task)
             raise ValueError("Only queued tasks may start.")
 
         identity = self._registry.get(task.agent_id)
         if identity is None:
+            self._audit_rejection(task)
             raise PermissionError("Unknown Agent.")
 
         if identity.status not in {
             AgentStatus.READY,
             AgentStatus.RUNNING,
         }:
+            self._audit_rejection(task)
             raise PermissionError("Agent is not schedulable.")
 
         if task.resource_units > self._resources.available:
+            self._audit_rejection(task)
             raise RuntimeError("Insufficient scheduler resources.")
 
         new_available = self._resources.available - task.resource_units
@@ -132,6 +142,13 @@ class AgentScheduler:
 
     def cancel(self, task_id: str) -> AgentTask:
         return self._finish(task_id, TaskStatus.CANCELLED)
+
+    def _audit_rejection(self, task: AgentTask) -> None:
+        self._audit(
+            action=AuditAction.FAILED,
+            result=AuditResult.FAILURE,
+            task=task,
+        )
 
     def _audit(
         self,
@@ -174,6 +191,7 @@ class AgentScheduler:
         task = self._get(task_id)
 
         if task.status is not TaskStatus.RUNNING:
+            self._audit_rejection(task)
             raise ValueError("Only running tasks may finish.")
 
         new_available = self._resources.available + task.resource_units

@@ -220,6 +220,71 @@ class TestAgentCommunicationEngine(unittest.TestCase):
                 )
             )
 
+    def test_create_registers_created_message(self) -> None:
+        message = self._message(
+            message_id="message-create-001",
+        )
+
+        created = self.engine.create(message)
+
+        self.assertEqual(created.status, MessageStatus.CREATED)
+        self.assertEqual(self.engine.get(message.message_id), created)
+        self.assertEqual(len(self.audit.events()), 0)
+
+    def test_created_message_can_be_rejected_and_is_audited(self) -> None:
+        message = self._message(
+            message_id="message-reject-001",
+        )
+        self.engine.create(message)
+
+        rejected = self.engine.reject(message.message_id)
+
+        self.assertEqual(rejected.status, MessageStatus.REJECTED)
+        self.assertEqual(self.engine.get(message.message_id), rejected)
+
+        events = self.audit.events()
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].action, AuditAction.FAILED)
+        self.assertEqual(events[0].result, AuditResult.FAILURE)
+        self.assertEqual(events[0].event_type, AuditEventType.COMMUNICATION_SEND)
+
+    def test_created_message_can_be_sent(self) -> None:
+        message = self._message(
+            message_id="message-create-send-001",
+        )
+        self.engine.create(message)
+
+        delivered = self.engine.send(message.message_id)
+
+        self.assertEqual(delivered.status, MessageStatus.DELIVERED)
+        self.assertEqual(self.engine.get(message.message_id), delivered)
+
+        events = self.audit.events()
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0].action, AuditAction.REQUESTED)
+        self.assertEqual(events[0].result, AuditResult.SUCCESS)
+        self.assertEqual(events[1].action, AuditAction.COMPLETED)
+        self.assertEqual(events[1].result, AuditResult.SUCCESS)
+
+    def test_created_message_duplicate_is_rejected(self) -> None:
+        message = self._message(
+            message_id="message-create-duplicate-001",
+        )
+        self.engine.create(message)
+
+        with self.assertRaises(ValueError):
+            self.engine.create(message)
+
+    def test_rejected_message_cannot_be_sent(self) -> None:
+        message = self._message(
+            message_id="message-rejected-send-001",
+        )
+        self.engine.create(message)
+        self.engine.reject(message.message_id)
+
+        with self.assertRaises(ValueError):
+            self.engine.send(message.message_id)
+
     def test_duplicate_message_rejected(self) -> None:
         self.engine.send(self._message())
 

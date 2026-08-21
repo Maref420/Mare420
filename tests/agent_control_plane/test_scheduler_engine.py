@@ -146,9 +146,14 @@ class TestAgentScheduler(unittest.TestCase):
             self.scheduler.submit(task)
 
         events = self.audit.events()
-        self.assertEqual(len(events), 1)
+        self.assertEqual(len(events), 2)
+
         self.assertEqual(events[0].action, AuditAction.REQUESTED)
         self.assertEqual(events[0].result, AuditResult.SUCCESS)
+
+        self.assertEqual(events[1].action, AuditAction.FAILED)
+        self.assertEqual(events[1].result, AuditResult.FAILURE)
+        self.assertEqual(events[1].operation_id, "duplicate-001")
 
     def test_failed_task_releases_resources(self) -> None:
         task = AgentTask(
@@ -185,6 +190,51 @@ class TestAgentScheduler(unittest.TestCase):
         self.assertEqual(len(events), 3)
         self.assertEqual(events[2].action, AuditAction.COMPLETED)
         self.assertEqual(events[2].result, AuditResult.SUCCESS)
+
+    def test_finish_rejects_queued_task_and_audits_failure(self) -> None:
+        task = AgentTask(
+            task_id="finish-queued-reject-001",
+            agent_id="agent-001",
+            resource_units=4,
+        )
+        self.scheduler.submit(task)
+
+        with self.assertRaises(ValueError):
+            self.scheduler.complete(task.task_id)
+
+        self.assertEqual(self.scheduler.get(task.task_id).status, TaskStatus.QUEUED)
+        events = self.audit.events()
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[1].action, AuditAction.FAILED)
+        self.assertEqual(events[1].result, AuditResult.FAILURE)
+        self.assertEqual(events[1].operation_id, task.task_id)
+
+    def test_finish_rejects_terminal_task_and_audits_failure(self) -> None:
+        task = AgentTask(
+            task_id="finish-terminal-reject-001",
+            agent_id="agent-001",
+            resource_units=4,
+        )
+        self.scheduler.submit(task)
+        self.scheduler.start(task.task_id)
+        self.scheduler.complete(task.task_id)
+
+        available_before = self.scheduler._resources.available
+
+        with self.assertRaises(ValueError):
+            self.scheduler.complete(task.task_id)
+
+        self.assertEqual(
+            self.scheduler.get(task.task_id).status,
+            TaskStatus.COMPLETED,
+        )
+        self.assertEqual(self.scheduler._resources.available, available_before)
+
+        events = self.audit.events()
+        self.assertEqual(len(events), 4)
+        self.assertEqual(events[3].action, AuditAction.FAILED)
+        self.assertEqual(events[3].result, AuditResult.FAILURE)
+        self.assertEqual(events[3].operation_id, task.task_id)
 
     def test_priority_ordering(self) -> None:
         self.scheduler.submit(
@@ -243,6 +293,77 @@ class TestAgentScheduler(unittest.TestCase):
     def test_resource_invariant_rejects_available_above_capacity(self) -> None:
         with self.assertRaises(ValueError):
             SchedulerResources(capacity=10, available=11)
+
+    def test_submit_does_not_consume_resources(self) -> None:
+        task = AgentTask(
+            task_id="queue-no-reservation-001",
+            agent_id="agent-001",
+            resource_units=6,
+        )
+
+        self.scheduler.submit(task)
+
+        self.scheduler.submit(
+            AgentTask(
+                task_id="queue-no-reservation-002",
+                agent_id="agent-001",
+                resource_units=10,
+            )
+        )
+
+    def test_start_reserves_resources(self) -> None:
+        task = AgentTask(
+            task_id="start-reservation-001",
+            agent_id="agent-001",
+            resource_units=6,
+        )
+
+        self.scheduler.submit(task)
+        self.scheduler.start(task.task_id)
+
+        with self.assertRaises(RuntimeError):
+            self.scheduler.start(
+                self.scheduler.submit(
+                    AgentTask(
+                        task_id="start-reservation-002",
+                        agent_id="agent-001",
+                        resource_units=5,
+                    )
+                ).task_id
+            )
+
+    def test_start_exact_capacity_is_allowed(self) -> None:
+        task = AgentTask(
+            task_id="exact-capacity-001",
+            agent_id="agent-001",
+            resource_units=10,
+        )
+
+        self.scheduler.submit(task)
+
+        running = self.scheduler.start(task.task_id)
+
+        self.assertEqual(running.status, TaskStatus.RUNNING)
+
+    def test_finish_releases_resources(self) -> None:
+        task = AgentTask(
+            task_id="release-001",
+            agent_id="agent-001",
+            resource_units=10,
+        )
+
+        self.scheduler.submit(task)
+        self.scheduler.start(task.task_id)
+        self.scheduler.complete(task.task_id)
+
+        self.scheduler.submit(
+            AgentTask(
+                task_id="release-002",
+                agent_id="agent-001",
+                resource_units=10,
+            )
+        )
+
 
     def test_queued_task_rechecks_agent_lifecycle_before_start(self) -> None:
         self.scheduler.submit(
