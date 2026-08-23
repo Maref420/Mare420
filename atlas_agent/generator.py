@@ -14,7 +14,12 @@ class GeneratorEngine:
         code = re.sub(r'^```\s*$', '', code, flags=re.MULTILINE)
         return code.strip()
 
-    def generate_project(self, spec: Any, target_dir: str) -> list[str]:
+    def generate_project(
+        self,
+        spec: Any,
+        target_dir: str,
+        repair_context: str | None = None,
+    ) -> list[str]:
         os.makedirs(target_dir, exist_ok=True)
         generated_files = []
 
@@ -23,14 +28,23 @@ class GeneratorEngine:
         requirement = spec.requirement.description
         architecture = spec.architecture
 
+        repair_section = ""
+        if repair_context:
+            repair_section = f"""
+Previous validation attempt failed.
+Repair the generated code based on these validation errors:
+{repair_context}
+"""
+
         prompt = f"""
         Generate a complete {lang} project for: {requirement}
         Project Name: {project_name}
         Architecture: {architecture}
         Modules: {', '.join([m.get('name', '') for m in spec.modules])}
-
+        {repair_section}
         Provide ONLY the complete contents of main source file. Do not include go.mod, other files, markdown, filenames, or explanations. The generated main source must be self-contained.
         """
+
 
         try:
             code_response = self.llm.generate_code(prompt, lang)

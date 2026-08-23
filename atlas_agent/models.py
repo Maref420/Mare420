@@ -24,6 +24,11 @@ class ApprovalStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
 
+class CodingLoopStatus(str, Enum):
+    IN_PROGRESS = "in_progress"
+    SUCCEEDED = "succeeded"
+    LOOP_EXHAUSTED = "loop_exhausted"
+
 class Requirement(BaseModel):
     description: str
     language: Language

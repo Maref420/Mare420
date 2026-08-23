@@ -37,56 +37,93 @@ class Orchestrator:
             self.governance.log_audit("pipeline_failed", "orchestrator", error="Specification validation failed")
             raise ValueError("Specification validation failed")
 
-        # 3. Generate Code
-        generated_files = self.generator.generate_project(spec, requirement.target_folder)
-        
-        # 4. Create Artifact
-        artifact = Artifact(
-            requirement=requirement,
-            specification=spec,
-            generated_files=generated_files
-        )
+        # 3. Generate, validate, and repair code
+        max_attempts = 5
+        repair_context = None
+        artifact = None
 
-        # 5. Validate Generated Code
-        if requirement.language.value == "go":
-            syntax_result = self.validator.check_syntax(
+        for attempt in range(1, max_attempts + 1):
+            generated_files = self.generator.generate_project(
+                spec,
                 requirement.target_folder,
-                requirement.language.value,
+                repair_context=repair_context,
             )
-            artifact.test_results.append(syntax_result)
 
-            for file_path in generated_files:
-                security_findings = self.validator.run_security_scan(
-                    file_path,
-                    requirement.language.value,
-                )
-                artifact.security_findings.extend(security_findings)
-        else:
-            for file_path in generated_files:
+            artifact = Artifact(
+                requirement=requirement,
+                specification=spec,
+                generated_files=generated_files,
+            )
+
+            # 4. Validate Generated Code
+            if requirement.language.value == "go":
                 syntax_result = self.validator.check_syntax(
-                    file_path,
+                    requirement.target_folder,
                     requirement.language.value,
                 )
                 artifact.test_results.append(syntax_result)
 
-                security_findings = self.validator.run_security_scan(
-                    file_path,
-                    requirement.language.value,
+                for file_path in generated_files:
+                    security_findings = self.validator.run_security_scan(
+                        file_path,
+                        requirement.language.value,
+                    )
+                    artifact.security_findings.extend(security_findings)
+            else:
+                for file_path in generated_files:
+                    syntax_result = self.validator.check_syntax(
+                        file_path,
+                        requirement.language.value,
+                    )
+                    artifact.test_results.append(syntax_result)
+
+                    security_findings = self.validator.run_security_scan(
+                        file_path,
+                        requirement.language.value,
+                    )
+                    artifact.security_findings.extend(security_findings)
+
+            # 5. Governance Validation
+            if self.governance.validate_artifact(artifact):
+                break
+
+            failed_results = [
+                result
+                for result in artifact.test_results
+                if not result.passed
+            ]
+
+            repair_context = "\n".join(
+                error
+                for result in failed_results
+                for error in result.errors
+            )
+
+            if attempt == max_attempts:
+                self.governance.log_audit(
+                    "pipeline_failed",
+                    "orchestrator",
+                    error="LOOP_EXHAUSTED",
                 )
-                artifact.security_findings.extend(security_findings)
+                raise RuntimeError("LOOP_EXHAUSTED")
 
-        # 6. Governance Validation
-        if not self.governance.validate_artifact(artifact):
-            self.governance.log_audit("pipeline_failed", "orchestrator", error="Governance validation failed")
-            raise ValueError("Governance validation failed")
+        assert artifact is not None
 
-        # 7. Human Approval
+        # 6. Human Approval
         if not self.governance.require_human_approval(artifact):
-            self.governance.log_audit("pipeline_rejected", "orchestrator", error="Human approval rejected")
+            self.governance.log_audit(
+                "pipeline_rejected",
+                "orchestrator",
+                error="Human approval rejected",
+            )
             artifact.status = ApprovalStatus.REJECTED
             return artifact
 
         artifact.status = ApprovalStatus.APPROVED
-        self.governance.log_audit("pipeline_success", "orchestrator", {"artifact": artifact.model_dump_json()})
-        
+        self.governance.log_audit(
+            "pipeline_success",
+            "orchestrator",
+            {"artifact": artifact.model_dump_json()},
+        )
+
         return artifact
