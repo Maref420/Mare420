@@ -40,7 +40,10 @@ class ValidatorEngine:
                     errors=result.stderr.splitlines() if result.stderr else []
                 )
             elif language == "go":
-                project_dir = os.path.abspath(file_path)
+                # Governed: file_path may be a file or directory.
+                # Always resolve to project directory for go tooling.
+                abs_path = os.path.abspath(file_path)
+                project_dir = abs_path if os.path.isdir(abs_path) else os.path.dirname(abs_path)
 
                 format_result = subprocess.run(
                     ["gofmt", "-l", "."],
@@ -205,6 +208,25 @@ class ValidatorEngine:
                         message="Go vet reported issues",
                         file_path=file_path,
                         suggestion=result.stderr.strip() or "Review go vet output",
+                    ))
+                return findings
+
+            if language == "rust":
+                result = subprocess.run(
+                    ["cargo", "clippy", "--", "-D", "warnings"],
+                    cwd=os.path.abspath(file_path),
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    findings.append(SecurityFinding(
+                        severity=SecurityLevel.HIGH,
+                        category="rust_clippy",
+                        message="Cargo clippy reported warnings/errors",
+                        file_path=file_path,
+                        suggestion=result.stdout.strip() or result.stderr.strip() or "Review cargo clippy output",
                     ))
                 return findings
 

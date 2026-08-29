@@ -20,51 +20,66 @@ class GeneratorEngine:
         target_dir: str,
         repair_context: str | None = None,
     ) -> list[str]:
-        os.makedirs(target_dir, exist_ok=True)
-        generated_files = []
+        """Generate project files per module in specification.
 
+        Governed by: contracts/schemas/coding-loop/artifact-v1.json
+        Each module produces an independent file. Repair context is
+        applied globally to all modules when validation fails.
+        """
+        os.makedirs(target_dir, exist_ok=True)
+        generated_files: list[str] = []
+        ext = self._get_extension(spec.requirement.language.value)
         lang = spec.requirement.language.value
         project_name = spec.requirement.project_name
-        requirement = spec.requirement.description
+        requirement_desc = spec.requirement.description
         architecture = spec.architecture
 
         repair_section = ""
         if repair_context:
-            repair_section = f"""
-Previous validation attempt failed.
-Repair the generated code based on these validation errors:
-{repair_context}
-"""
+            repair_section = (
+                "\nPrevious validation attempt failed.\n"
+                "Repair the generated code based on these validation errors:\n"
+                f"{repair_context}\n"
+            )
 
-        prompt = f"""
-        Generate a complete {lang} project for: {requirement}
-        Project Name: {project_name}
-        Architecture: {architecture}
-        Modules: {', '.join([m.get('name', '') for m in spec.modules])}
-        {repair_section}
-        Provide ONLY the complete contents of main source file. Do not include go.mod, other files, markdown, filenames, or explanations. The generated main source must be self-contained.
-        """
+        modules = spec.modules or [{"name": "main"}]
 
+        for module in modules:
+            module_name = module.get("name", "main")
+            prompt = (
+                f"Generate a complete {lang} source file for module '{module_name}'.\n"
+                f"Project: {project_name}\n"
+                f"Requirement: {requirement_desc}\n"
+                f"Architecture: {architecture}\n"
+                f"All modules: {', '.join(m.get('name', '') for m in modules)}\n"
+                f"{repair_section}"
+                f"Provide ONLY the complete source code for this single module. "
+                f"No markdown, no filenames, no explanations."
+            )
 
-        try:
-            code_response = self.llm.generate_code(prompt, lang)
-            clean_code = self._clean_code(code_response)
+            try:
+                code_response = self.llm.generate_code(prompt, lang)
+                clean_code = self._clean_code(code_response)
 
-            main_file = f"main.{self._get_extension(lang)}"
-            main_path = os.path.join(target_dir, main_file)
+                file_name = f"{module_name}.{ext}"
+                file_path = os.path.join(target_dir, file_name)
 
-            with open(main_path, "w", encoding="utf-8") as f:
-                f.write(clean_code.rstrip() + "\n")
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.write(clean_code.rstrip() + "\n")
 
-            generated_files.append(main_path)
+                generated_files.append(file_path)
+            except Exception as e:  # noqa: BLE001
+                raise RuntimeError(
+                    f"Code generation failed for module '{module_name}': {e!s}"
+                ) from e
 
-            if lang == "go":
-                go_mod_path = os.path.join(target_dir, "go.mod")
+        # Go projects require go.mod at project root
+        if lang == "go":
+            go_mod_path = os.path.join(target_dir, "go.mod")
+            if not os.path.exists(go_mod_path):
                 with open(go_mod_path, "w", encoding="utf-8") as f:
                     f.write(f"module {project_name}\n\ngo 1.22\n")
-                generated_files.append(go_mod_path)
-        except Exception as e:  # noqa: BLE001
-            raise RuntimeError(f"Code generation failed: {e!s}") from e
+            generated_files.append(go_mod_path)
 
         return generated_files
 
