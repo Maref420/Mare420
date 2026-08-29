@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "type": "security-finding-contract",
+  "purpose": "Define structure for security findings reported by Atlas AI agents",
+  "required_fields": ["severity", "category", "message", "file_path", "suggestion"],
+  "optional_fields": ["line_number"],
+  "rules": {
+    "severity_enum": ["critical", "high", "medium", "low", "info"],
+    "file_path_must_be_relative": true,
+    "suggestion_required_for_non_info": true
+  },
+  "ownership": {
+    "owner": "Agent Control Plane",
+    "unauthorized_modification": "prohibited"
+  }
+}
