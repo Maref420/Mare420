@@ -16,6 +16,7 @@ def main() -> None:
     parser.add_argument("--target-folder", required=True, help="Target folder for generated code")
     parser.add_argument("--architecture", required=True, help="Architecture description")
     parser.add_argument("--modules", nargs="+", required=True, help="List of modules to generate")
+    parser.add_argument("--auto-approve", action="store_true", help="Skip human approval (for CI/non-interactive use)")
 
     args = parser.parse_args()
 
@@ -27,6 +28,9 @@ def main() -> None:
             target_folder=args.target_folder
         )
 
+        if args.auto_approve:
+            from .config import settings
+            settings.require_human_approval = False
         orchestrator = Orchestrator()
         artifact = orchestrator.run_pipeline(req, args.architecture, args.modules)
 
@@ -40,3 +44,7 @@ def main() -> None:
     except Exception as e:  # noqa: BLE001
         print(f"\n❌ Error: {e}")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
