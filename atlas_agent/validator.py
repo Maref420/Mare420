@@ -13,6 +13,16 @@ class ValidatorEngine:
     """
     Validates generated code artifacts.
     """
+    @staticmethod
+    def _to_relative(file_path: str) -> str:
+        """Convert absolute path to relative for SecurityFinding contract compliance."""
+        if os.path.isabs(file_path):
+            try:
+                return os.path.relpath(file_path)
+            except ValueError:
+                return os.path.basename(file_path)
+        return file_path
+
 
     def check_syntax(self, file_path: str, language: str) -> TestResult:
         """
@@ -154,7 +164,7 @@ class ValidatorEngine:
 
         return TestResult(test_name="syntax_check", passed=False, duration_ms=0.1, errors=["Unsupported language"])
 
-    def run_security_scan(self, file_path: str, language: str) -> list[SecurityFinding]:
+    def run_security_scan(self, file_path: str, language: str, base_dir: str = "") -> list[SecurityFinding]:
         """
         Run the language-appropriate security validation.
 
@@ -173,6 +183,12 @@ class ValidatorEngine:
 
         """
         findings = []
+        # Governed: Compute display_path once for all findings.
+        # Validators own the path format in their output models.
+        if base_dir and os.path.isabs(file_path):
+            display_path = os.path.relpath(file_path, base_dir)
+        else:
+            display_path = file_path
         try:
             if language == "python":
                 result = subprocess.run(
@@ -187,15 +203,22 @@ class ValidatorEngine:
                         severity=SecurityLevel.MEDIUM,
                         category="security_scan",
                         message="Bandit scan found issues",
-                        file_path=file_path,
+                        file_path=display_path,
                         suggestion=result.stderr.strip() or "Review Bandit output",
                     ))
                 return findings
 
             if language == "go":
+                # Governed: go vet requires project directory.
+                # Use base_dir if provided, otherwise derive from file_path.
+                go_project_dir = base_dir if base_dir else (
+                    os.path.dirname(os.path.abspath(file_path))
+                    if not os.path.isdir(os.path.abspath(file_path))
+                    else os.path.abspath(file_path)
+                )
                 result = subprocess.run(
                     ["go", "vet", "./..."],
-                    cwd=os.path.abspath(file_path),
+                    cwd=go_project_dir,
                     capture_output=True,
                     text=True,
                     timeout=30,
@@ -206,15 +229,18 @@ class ValidatorEngine:
                         severity=SecurityLevel.HIGH,
                         category="go_security_validation",
                         message="Go vet reported issues",
-                        file_path=file_path,
+                        file_path=display_path,
                         suggestion=result.stderr.strip() or "Review go vet output",
                     ))
                 return findings
 
             if language == "rust":
+                # Governed: cargo clippy requires project directory, not file path
+                abs_path = os.path.abspath(file_path)
+                rust_project_dir = abs_path if os.path.isdir(abs_path) else os.path.dirname(abs_path)
                 result = subprocess.run(
                     ["cargo", "clippy", "--", "-D", "warnings"],
-                    cwd=os.path.abspath(file_path),
+                    cwd=rust_project_dir,
                     capture_output=True,
                     text=True,
                     timeout=120,
@@ -225,7 +251,7 @@ class ValidatorEngine:
                         severity=SecurityLevel.HIGH,
                         category="rust_clippy",
                         message="Cargo clippy reported warnings/errors",
-                        file_path=file_path,
+                        file_path=display_path,
                         suggestion=result.stdout.strip() or result.stderr.strip() or "Review cargo clippy output",
                     ))
                 return findings

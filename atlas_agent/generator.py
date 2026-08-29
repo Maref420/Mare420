@@ -61,13 +61,21 @@ class GeneratorEngine:
                 code_response = self.llm.generate_code(prompt, lang)
                 clean_code = self._clean_code(code_response)
 
-                file_name = f"{module_name}.{ext}"
-                file_path = os.path.join(target_dir, file_name)
+                # Governed: Rust requires src/ directory structure for cargo tooling
+                if ext == "rs":
+                    src_dir = os.path.join(target_dir, "src")
+                    os.makedirs(src_dir, exist_ok=True)
+                    file_name = f"{module_name}.{ext}"
+                    file_path = os.path.join(src_dir, file_name)
+                else:
+                    file_name = f"{module_name}.{ext}"
+                    file_path = os.path.join(target_dir, file_name)
 
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(clean_code.rstrip() + "\n")
 
-                generated_files.append(file_path)
+                # Governed: Return relative paths per artifact contract
+                generated_files.append(os.path.relpath(file_path, target_dir))
             except Exception as e:  # noqa: BLE001
                 raise RuntimeError(
                     f"Code generation failed for module '{module_name}': {e!s}"
@@ -79,7 +87,15 @@ class GeneratorEngine:
             if not os.path.exists(go_mod_path):
                 with open(go_mod_path, "w", encoding="utf-8") as f:
                     f.write(f"module {project_name}\n\ngo 1.22\n")
-            generated_files.append(go_mod_path)
+            generated_files.append(os.path.relpath(go_mod_path, target_dir))
+
+        # Rust projects require Cargo.toml at project root
+        if lang == "rust":
+            cargo_toml_path = os.path.join(target_dir, "Cargo.toml")
+            if not os.path.exists(cargo_toml_path):
+                with open(cargo_toml_path, "w", encoding="utf-8") as f:
+                    f.write(f'[package]\nname = "{project_name}"\nversion = "0.1.0"\nedition = "2021"\n')
+            generated_files.append(os.path.relpath(cargo_toml_path, target_dir))
 
         return generated_files
 
