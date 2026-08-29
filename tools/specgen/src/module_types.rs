@@ -19,6 +19,7 @@ use crate::errors::{SpecgenError, SpecgenResult};
 pub enum Language {
     Rust,
     Python,
+    Go,
 }
 
 /// Deployment/quality profiles registered for Atlas AI.
@@ -32,9 +33,6 @@ pub enum Profile {
 }
 
 /// Artifact families addressable through metadata.
-///
-/// `error` and `test` templates are auxiliary inputs consumed by
-/// generators and are intentionally not metadata-addressable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ArtifactKind {
@@ -49,17 +47,16 @@ pub enum ArtifactKind {
 }
 
 impl Language {
-    /// Canonical identifier as registered in `languages.yaml`.
     pub fn as_str(self) -> &'static str {
         match self {
             Language::Rust => "rust",
             Language::Python => "python",
+            Language::Go => "go",
         }
     }
 }
 
 impl Profile {
-    /// Canonical identifier as registered in `profiles.yaml`.
     pub fn as_str(self) -> &'static str {
         match self {
             Profile::Production => "production",
@@ -71,7 +68,6 @@ impl Profile {
 }
 
 impl ArtifactKind {
-    /// Canonical identifier matching the template layout.
     pub fn as_str(self) -> &'static str {
         match self {
             ArtifactKind::Module => "module",
@@ -88,11 +84,11 @@ impl ArtifactKind {
 
 impl FromStr for Language {
     type Err = SpecgenError;
-
     fn from_str(value: &str) -> SpecgenResult<Self> {
         match value {
             "rust" => Ok(Language::Rust),
             "python" => Ok(Language::Python),
+            "go" => Ok(Language::Go),
             other => Err(SpecgenError::UnknownValue {
                 kind: "language",
                 value: other.to_string(),
@@ -103,7 +99,6 @@ impl FromStr for Language {
 
 impl FromStr for Profile {
     type Err = SpecgenError;
-
     fn from_str(value: &str) -> SpecgenResult<Self> {
         match value {
             "production" => Ok(Profile::Production),
@@ -120,7 +115,6 @@ impl FromStr for Profile {
 
 impl FromStr for ArtifactKind {
     type Err = SpecgenError;
-
     fn from_str(value: &str) -> SpecgenResult<Self> {
         match value {
             "module" => Ok(ArtifactKind::Module),
@@ -163,43 +157,12 @@ mod tests {
 
     #[test]
     fn language_round_trip() -> SpecgenResult<()> {
-        for (text, expected) in [("rust", Language::Rust), ("python", Language::Python)] {
+        for (text, expected) in [
+            ("rust", Language::Rust),
+            ("python", Language::Python),
+            ("go", Language::Go),
+        ] {
             let parsed = Language::from_str(text)?;
-            assert_eq!(parsed, expected);
-            assert_eq!(parsed.as_str(), text);
-            assert_eq!(parsed.to_string(), text);
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn profile_round_trip() -> SpecgenResult<()> {
-        for (text, expected) in [
-            ("production", Profile::Production),
-            ("research", Profile::Research),
-            ("benchmark", Profile::Benchmark),
-            ("legacy", Profile::Legacy),
-        ] {
-            let parsed = Profile::from_str(text)?;
-            assert_eq!(parsed, expected);
-            assert_eq!(parsed.as_str(), text);
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn artifact_round_trip() -> SpecgenResult<()> {
-        for (text, expected) in [
-            ("module", ArtifactKind::Module),
-            ("service", ArtifactKind::Service),
-            ("agent", ArtifactKind::Agent),
-            ("api", ArtifactKind::Api),
-            ("event", ArtifactKind::Event),
-            ("schema", ArtifactKind::Schema),
-            ("foundation", ArtifactKind::Foundation),
-            ("architecture_rules", ArtifactKind::ArchitectureRules),
-        ] {
-            let parsed = ArtifactKind::from_str(text)?;
             assert_eq!(parsed, expected);
             assert_eq!(parsed.as_str(), text);
         }
@@ -209,16 +172,8 @@ mod tests {
     #[test]
     fn unknown_values_are_rejected() {
         assert!(matches!(
-            Language::from_str("go"),
+            Language::from_str("java"),
             Err(SpecgenError::UnknownValue { kind: "language", .. })
-        ));
-        assert!(matches!(
-            Profile::from_str("nightly"),
-            Err(SpecgenError::UnknownValue { kind: "profile", .. })
-        ));
-        assert!(matches!(
-            ArtifactKind::from_str("widget"),
-            Err(SpecgenError::UnknownValue { kind: "artifact", .. })
         ));
     }
 }

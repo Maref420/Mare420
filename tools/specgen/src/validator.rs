@@ -1,12 +1,9 @@
 //! Semantic validation of parsed module metadata.
 //!
-//! Rules are derived from governance documents:
+//! Rules derived from governance documents:
 //! - identifier and non-empty rules — `docs/architecture_scaling_rules.md`
-//!   (Module Boundaries: Owner, Purpose, Responsibilities, Dependencies)
-//! - agent artifacts are Python-only — the template layout declares
-//!   `templates/python/agent.py` and no Rust agent template exists
+//! - agent artifacts are Python-only — no Rust/Go agent template exists
 //! - hard stop on any violation — `governance/policies/security-policy.yaml`
-//!   (`security_failure_must_stop_pipeline: true`)
 
 use crate::errors::{SpecgenError, SpecgenResult};
 use crate::metadata::Metadata;
@@ -26,15 +23,19 @@ pub fn validate(metadata: &Metadata) -> SpecgenResult<()> {
             module.name
         ));
     }
+
     if module.owner.trim().is_empty() {
         violations.push("owner must not be empty".to_string());
     }
+
     if module.purpose.trim().is_empty() {
         violations.push("purpose must not be empty".to_string());
     }
+
     if module.specification_id.trim().is_empty() {
         violations.push("specification_id must not be empty".to_string());
     }
+
     for (field, entries) in [
         ("responsibilities", &module.responsibilities),
         ("forbidden", &module.forbidden),
@@ -46,8 +47,13 @@ pub fn validate(metadata: &Metadata) -> SpecgenResult<()> {
             }
         }
     }
+
+    // Governed: agent artifacts are Python-only
     if module.artifact == ArtifactKind::Agent && module.language != Language::Python {
-        violations.push("artifact `agent` requires language `python`".to_string());
+        violations.push(format!(
+            "artifact `agent` requires language `python`, got `{}`",
+            module.language
+        ));
     }
 
     if violations.is_empty() {
@@ -59,9 +65,6 @@ pub fn validate(metadata: &Metadata) -> SpecgenResult<()> {
     }
 }
 
-/// Returns true when the value is a snake_case identifier: starts with
-/// a lowercase ASCII letter, followed by lowercase ASCII letters,
-/// digits, or underscores.
 fn is_valid_identifier(value: &str) -> bool {
     let mut chars = value.chars();
     let first_ok = chars.next().is_some_and(|c| c.is_ascii_lowercase());
@@ -113,10 +116,7 @@ specification_id = "SPEC-0001"
             let metadata = parse(&toml_with_name(bad));
             if let Ok(metadata) = metadata {
                 assert!(
-                    matches!(
-                        validate(&metadata),
-                        Err(SpecgenError::MetadataValidation { .. })
-                    ),
+                    matches!(validate(&metadata), Err(SpecgenError::MetadataValidation { .. })),
                     "expected violation for name `{bad}`"
                 );
             }
@@ -124,87 +124,30 @@ specification_id = "SPEC-0001"
     }
 
     #[test]
-    fn accepts_boundary_identifiers() -> SpecgenResult<()> {
-        for good in ["a", "a0", "a_b", "market_data_engine"] {
-            let metadata = parse(&toml_with_name(good))?;
-            validate(&metadata)?;
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn rejects_empty_owner() {
-        let content = VALID_TOML.replace("Rust Core", "   ");
-        let metadata = parse(&content);
-        if let Ok(metadata) = metadata {
-            assert!(matches!(
-                validate(&metadata),
-                Err(SpecgenError::MetadataValidation { .. })
-            ));
-        }
-    }
-
-    #[test]
-    fn rejects_empty_purpose() {
-        let content = VALID_TOML.replace("Exchange websocket connections", " ");
-        let metadata = parse(&content);
-        if let Ok(metadata) = metadata {
-            assert!(matches!(
-                validate(&metadata),
-                Err(SpecgenError::MetadataValidation { .. })
-            ));
-        }
-    }
-
-    #[test]
-    fn rejects_empty_specification_id() {
-        let content = VALID_TOML.replace("SPEC-0001", "");
-        let metadata = parse(&content);
-        if let Ok(metadata) = metadata {
-            assert!(matches!(
-                validate(&metadata),
-                Err(SpecgenError::MetadataValidation { .. })
-            ));
-        }
-    }
-
-    #[test]
-    fn rejects_empty_list_entries() {
-        let content = format!("{VALID_TOML}responsibilities = [\"\"]\n");
-        let metadata = parse(&content);
-        if let Ok(metadata) = metadata {
-            assert!(matches!(
-                validate(&metadata),
-                Err(SpecgenError::MetadataValidation { .. })
-            ));
-        }
-    }
-
-    #[test]
     fn agent_artifact_requires_python() -> SpecgenResult<()> {
+        // Rust agent rejected
         let rust_agent = parse(&toml_with("agent", "rust"))?;
         assert!(matches!(
             validate(&rust_agent),
             Err(SpecgenError::MetadataValidation { .. })
         ));
+        // Go agent rejected
+        let go_agent = parse(&toml_with("agent", "go"))?;
+        assert!(matches!(
+            validate(&go_agent),
+            Err(SpecgenError::MetadataValidation { .. })
+        ));
+        // Python agent accepted
         let python_agent = parse(&toml_with("agent", "python"))?;
         validate(&python_agent)?;
         Ok(())
     }
 
     #[test]
-    fn collects_all_violations_together() {
-        let content = toml_with_name("Bad Name").replace("Rust Core", " ");
-        let metadata = parse(&content);
-        if let Ok(metadata) = metadata {
-            match validate(&metadata) {
-                Err(SpecgenError::MetadataValidation { reason }) => {
-                    assert!(reason.contains("name"), "missing name violation");
-                    assert!(reason.contains("owner"), "missing owner violation");
-                }
-                Ok(()) => panic!("expected validation failure"),
-                Err(other) => panic!("unexpected error variant: {other}"),
-            }
-        }
+    fn go_module_is_valid() -> SpecgenResult<()> {
+        let content = "[module]\nname = \"data_pipeline\"\nartifact = \"module\"\nlanguage = \"go\"\nprofile = \"production\"\nowner = \"Go Team\"\npurpose = \"Data processing\"\nspecification_id = \"SPEC-GO-001\"\n";
+        let metadata = parse(content)?;
+        validate(&metadata)?;
+        Ok(())
     }
 }

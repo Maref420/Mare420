@@ -1,22 +1,37 @@
-target/
-backups/
-*.bak
-
-# Local secrets
+# Atlas AI .gitignore — Governed Storage Policy
+**/target/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+*.exe
+*.test
+*.out
 .env
 .env.*
 !.env.example
-
-# Python virtual environments and caches
-.venv/
-__pycache__/
-*.py[cod]
-
-# Runtime artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+supabase/.temp/
 logs/
-output/
+*.log
+Thumbs.db
+node_modules/
+.pm2/
+output/*/target/
+output/*/__pycache__/
 
-# Security test artifacts & build metadata
-Alarms/
-libmain.rmeta
-governance-files.tar.gz
+# Build artifacts and archives
+*.tar.gz
+*.rmeta
+output/*/go_server
+output/*/*.exe
