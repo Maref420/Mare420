@@ -4,7 +4,7 @@ Coordinates the workflow between Governance, Generator, and Validator
 """
 from .generator import GeneratorEngine
 from .governance import GovernanceEngine
-from .models import ApprovalStatus, Artifact, Requirement, Specification
+from .models import ApprovalStatus, Artifact, Requirement, SecurityLevel, Specification
 from .validator import ValidatorEngine
 
 
@@ -87,17 +87,28 @@ class Orchestrator:
             if self.governance.validate_artifact(artifact):
                 break
 
+            # Collect ALL validation failures for repair context
             failed_results = [
                 result
                 for result in artifact.test_results
                 if not result.passed
             ]
-
-            repair_context = "\n".join(
+            test_errors = [
                 error
                 for result in failed_results
                 for error in result.errors
-            )
+            ]
+
+            # CRITICAL: Include security findings in repair feedback
+            security_errors = [
+                f"[{f.severity.value.upper()}] {f.category}: {f.message} -> {f.suggestion}"
+                for f in artifact.security_findings
+                if f.severity in (SecurityLevel.CRITICAL, SecurityLevel.HIGH)
+            ]
+
+            repair_parts = test_errors + security_errors
+            repair_context = "\n".join(repair_parts) if repair_parts else None
+
 
             if attempt == max_attempts:
                 self.governance.log_audit(
