@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "type": "safety-contract",
+  "purpose": "Define circuit breaker thresholds and behavior for trading halt",
+  "required_fields": ["max_consecutive_losses", "max_daily_loss_pct", "cooldown_seconds", "halt_action"],
+  "field_types": {
+    "max_consecutive_losses": "int(ge=1)",
+    "max_daily_loss_pct": "float(gt=0,le=100)",
+    "cooldown_seconds": "int(ge=60)",
+    "halt_action": "enum(close_all,stop_new_orders,full_halt)"
+  },
+  "rules": {
+    "extra_fields": "forbid",
+    "audit_required_on_trigger": true,
+    "manual_override_requires_approval": true,
+    "state_persistence_required": true
+  },
+  "ownership": {
+    "owner": "Risk Engine",
+    "unauthorized_modification": "prohibited"
+  }
+}

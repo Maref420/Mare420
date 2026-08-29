@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from intelligence.memory_system.memory_kernel.kernel import MemoryKernel
 from intelligence.memory_system.models.memory_record import (
@@ -40,7 +40,7 @@ class MemoryConsolidationEngine:
         consolidated = MemoryRecord(
             memory_id=f"semantic:{source.memory_id}",
             memory_type=MemoryType.SEMANTIC,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content={
                 "source_memory_id": source.memory_id,
                 "knowledge": source.content,

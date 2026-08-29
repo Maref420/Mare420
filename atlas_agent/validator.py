@@ -20,7 +20,7 @@ class ValidatorEngine:
         """
         try:
             if language == "python":
-                with open(file_path, 'r') as f:
+                with open(file_path) as f:
                     source = f.read()
                 ast.parse(source)
                 return TestResult(test_name="syntax_check", passed=True, duration_ms=0.1)
@@ -148,7 +148,7 @@ class ValidatorEngine:
             return TestResult(test_name="syntax_check", passed=False, duration_ms=0.1, errors=[str(e)])
         except Exception as e:  # noqa: BLE001
             return TestResult(test_name="syntax_check", passed=False, duration_ms=0.1, errors=[str(e)])
-        
+
         return TestResult(test_name="syntax_check", passed=False, duration_ms=0.1, errors=["Unsupported language"])
 
     def run_security_scan(self, file_path: str, language: str) -> list[SecurityFinding]:
@@ -244,5 +244,5 @@ class ValidatorEngine:
             results.append(TestResult(test_name="unit_tests", passed=False, duration_ms=0, errors=["pytest not found"]))
         except subprocess.TimeoutExpired:
             results.append(TestResult(test_name="unit_tests", passed=False, duration_ms=60000, errors=["Test timeout"]))
-            
+
         return results

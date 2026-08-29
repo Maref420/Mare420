@@ -24,10 +24,10 @@ class TestAgentLifecycleEngine(unittest.TestCase):
         identity = self.lifecycle.startup("agent-lifecycle-001")
 
         self.assertEqual(identity.status, AgentStatus.RUNNING)
-        self.assertEqual(
-            self.registry.get("agent-lifecycle-001").status,
-            AgentStatus.RUNNING,
-        )
+        registered = self.registry.get("agent-lifecycle-001")
+        self.assertIsNotNone(registered)
+        assert registered is not None
+        self.assertEqual(registered.status, AgentStatus.RUNNING)
 
     def test_suspend_and_resume(self) -> None:
         self.lifecycle.startup("agent-lifecycle-001")

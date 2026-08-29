@@ -6,7 +6,7 @@ from .llm_client import LLMClient
 
 
 class GeneratorEngine:
-    def __init__(self):
+    def __init__(self) -> None:
         self.llm = LLMClient()
 
     def _clean_code(self, code: str) -> str:
@@ -64,7 +64,7 @@ Repair the generated code based on these validation errors:
                     f.write(f"module {project_name}\n\ngo 1.22\n")
                 generated_files.append(go_mod_path)
         except Exception as e:  # noqa: BLE001
-            raise RuntimeError(f"Code generation failed: {e!s}")
+            raise RuntimeError(f"Code generation failed: {e!s}") from e
 
         return generated_files
 

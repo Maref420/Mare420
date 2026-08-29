@@ -1,10 +1,6 @@
 import os
 
-from intelligence.memory_system.models.memory_record import (
-    MemoryRecord,
-    MemoryType,
-    ValidationStatus,
-)
+from intelligence.memory_system.models.memory_record import MemoryRecord
 from intelligence.memory_system.storage.interface import MemoryStorage
 from supabase import Client, create_client
 
@@ -39,8 +35,10 @@ class DatabaseMemoryStorage(MemoryStorage):
         response = (
             self._client
             .table("memory_records")
-            .select("memory_id,memory_type,created_at,content,metadata,"
-                    "validation_status,operation_id,agent_id")
+            .select(
+                "memory_id,memory_type,created_at,content,metadata,"
+                "validation_status,operation_id,agent_id"
+            )
             .eq("memory_id", memory_id)
             .limit(1)
             .execute()
@@ -49,18 +47,7 @@ class DatabaseMemoryStorage(MemoryStorage):
         if not response.data:
             return None
 
-        row = response.data[0]
-
-        return MemoryRecord(
-            memory_id=row["memory_id"],
-            memory_type=MemoryType(row["memory_type"]),
-            created_at=row["created_at"],
-            content=row["content"],
-            metadata=row["metadata"],
-            validation_status=ValidationStatus(row["validation_status"]),
-            operation_id=row["operation_id"],
-            agent_id=row["agent_id"],
-        )
+        return MemoryRecord.model_validate(response.data[0])
 
     def delete(self, memory_id: str) -> bool:
         response = (

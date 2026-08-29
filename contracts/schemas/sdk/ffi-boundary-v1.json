@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "type": "ffi-contract",
+  "purpose": "Define the Foreign Function Interface boundary between Python, Rust, and Go in Atlas AI SDK",
+  "supported_languages": ["python", "rust", "go"],
+  "serialization_format": "json",
+  "required_interfaces": [
+    {
+      "name": "MemoryKernel",
+      "operations": ["store", "retrieve", "validate", "consolidate", "forget"],
+      "governed_by": "contracts/schemas/memory/memory-contract-v1.json"
+    },
+    {
+      "name": "AuditSink",
+      "operations": ["record"],
+      "governed_by": "contracts/schemas/audit/audit-contract-v1.json"
+    },
+    {
+      "name": "RiskAssessor",
+      "operations": ["assess"],
+      "governed_by": "contracts/schemas/risk/risk-assessment-v1.json"
+    }
+  ],
+  "rules": {
+    "no_direct_database_access_across_ffi": true,
+    "all_cross_language_calls_must_be_serialized": true,
+    "type_safety_enforced_via_contract_schemas": true,
+    "error_propagation_required": true,
+    "no_shared_memory_between_languages": true,
+    "audit_required_on_ffi_boundary_crossing": true
+  },
+  "ownership": {
+    "owner": "SDK Team",
+    "unauthorized_modification": "prohibited"
+  }
+}

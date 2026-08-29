@@ -13,7 +13,7 @@ class Orchestrator:
     Main orchestrator for the code generation pipeline.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.governance = GovernanceEngine()
         self.generator = GeneratorEngine()
         self.validator = ValidatorEngine()

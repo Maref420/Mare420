@@ -22,23 +22,45 @@ class GovernanceEngine:
     Enforces governance rules, policies, and audit logging.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.audit_logs: list[AuditLog] = []
         self._ensure_logs_dir()
 
-    def _ensure_logs_dir(self):
+    def _ensure_logs_dir(self) -> None:
         os.makedirs(settings.logs_dir, exist_ok=True)
 
-    def log_audit(self, action: str, component: str, details: dict[str, Any] | None = None, result: str = "success", error: str | None = None):
+    def log_audit(
+        self,
+        action: str,
+        component: str,
+        details: dict[str, Any] | None = None,
+        result: str = "success",
+        error: str | None = None,
+        event_type: str = "governance_event",
+        operation_id: str = "unknown",
+        agent_id: str = "governance_engine",
+        resource: str = "",
+    ) -> None:
+        """Log an audit event using canonical AuditLog structure.
+
+        Legacy params (component, details, error) are migrated to metadata.
+        Governed by: contracts/schemas/audit/audit-contract-v1.json
+        """
+        metadata = dict(details or {})
+        metadata["component"] = component
+        if error is not None:
+            metadata["error"] = error
+
         log_entry = AuditLog(
+            event_type=event_type,
+            operation_id=operation_id,
+            agent_id=agent_id,
             action=action,
-            component=component,
-            details=details or {},
+            resource=resource or component,
             result=result,
-            error=error
+            metadata=metadata,
         )
         self.audit_logs.append(log_entry)
-
         log_file = os.path.join(settings.logs_dir, "audit.log")
         with open(log_file, "a") as f:
             f.write(f"{log_entry.timestamp} | {action} | {component} | {result} | {error or ''}\n")
@@ -76,7 +98,7 @@ class GovernanceEngine:
     def scan_for_secrets(self, content: str, file_path: str) -> list[SecurityFinding]:
         findings = []
         for pattern in settings.secret_patterns:
-            if re.search(pattern, content):
+            if re.search(pattern, content, re.IGNORECASE):
                 findings.append(SecurityFinding(
                     severity=SecurityLevel.CRITICAL,
                     category="secret_detection",

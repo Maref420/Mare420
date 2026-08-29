@@ -6,8 +6,11 @@ from intelligence.agent_runtime.state.models import (
 )
 
 
-class InvalidRuntimeStateTransition(ValueError):
+class InvalidRuntimeStateTransitionError(ValueError):
     """Raised when a runtime state transition is not permitted."""
+
+
+InvalidRuntimeStateTransition = InvalidRuntimeStateTransitionError
 
 
 class AgentRuntimeStateManager:
@@ -71,7 +74,7 @@ class AgentRuntimeStateManager:
         allowed = self._TRANSITIONS[current.state]
 
         if target_state not in allowed:
-            raise InvalidRuntimeStateTransition(
+            raise InvalidRuntimeStateTransitionError(
                 f"Invalid runtime state transition: "
                 f"{current.state.value} -> {target_state.value}"
             )

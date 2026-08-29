@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from intelligence.agent_control_plane.audit.interface import AuditSink
@@ -95,7 +95,7 @@ class AgentGateway:
                 event_type=event_type,
                 operation_id=operation_id,
                 agent_id=agent_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 action=action,
                 resource=resource,
                 result=result,

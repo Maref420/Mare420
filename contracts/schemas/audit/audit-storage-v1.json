@@ -1,56 +1,60 @@
 {
-  "version": "1.0",
-  "type": "audit-storage-contract",
-  "table": "audit_events",
-  "immutable": true,
-  "columns": {
-    "event_id": {
-      "type": "uuid",
-      "required": true,
-      "primary_key": true
+    "version": "1.0",
+    "type": "audit-storage-contract",
+    "table": "audit_events",
+    "immutable": true,
+    "columns": {
+        "event_id": {
+            "type": "uuid",
+            "required": true,
+            "primary_key": true
+        },
+        "contract_version": {
+            "type": "text",
+            "required": true
+        },
+        "event_type": {
+            "type": "text",
+            "required": true
+        },
+        "operation_id": {
+            "type": "text",
+            "required": true
+        },
+        "agent_id": {
+            "type": "text",
+            "required": true
+        },
+        "timestamp": {
+            "type": "timestamptz",
+            "required": true
+        },
+        "action": {
+            "type": "text",
+            "required": true
+        },
+        "resource": {
+            "type": "text",
+            "required": true
+        },
+        "result": {
+            "type": "text",
+            "required": true
+        },
+        "metadata": {
+            "type": "jsonb",
+            "required": true
+        }
     },
-    "contract_version": {
-      "type": "text",
-      "required": true
+    "rules": {
+        "schema_validation_required": true,
+        "unknown_fields_rejected": true,
+        "direct_update_forbidden": true,
+        "direct_delete_forbidden": true,
+        "sensitive_data_logging_prohibited": true
     },
-    "event_type": {
-      "type": "text",
-      "required": true
-    },
-    "operation_id": {
-      "type": "text",
-      "required": true
-    },
-    "agent_id": {
-      "type": "text",
-      "required": true
-    },
-    "timestamp": {
-      "type": "timestamptz",
-      "required": true
-    },
-    "action": {
-      "type": "text",
-      "required": true
-    },
-    "resource": {
-      "type": "text",
-      "required": true
-    },
-    "result": {
-      "type": "text",
-      "required": true
-    },
-    "metadata": {
-      "type": "jsonb",
-      "required": true
+    "ownership": {
+        "owner": "Agent Control Plane",
+        "unauthorized_modification": "prohibited"
     }
-  },
-  "rules": {
-    "schema_validation_required": true,
-    "unknown_fields_rejected": true,
-    "direct_update_forbidden": true,
-    "direct_delete_forbidden": true,
-    "sensitive_data_logging_prohibited": true
-  }
 }

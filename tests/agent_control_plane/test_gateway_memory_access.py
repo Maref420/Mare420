@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from intelligence.agent_control_plane.audit.memory_sink import InMemoryAuditSink
 from intelligence.agent_control_plane.gateway.gateway import AgentGateway
@@ -84,7 +84,7 @@ class TestAgentGateway(unittest.TestCase):
         return MemoryRecord(
             memory_id="memory-001",
             memory_type=MemoryType.SEMANTIC,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content={"knowledge": "validated"},
             metadata={},
             validation_status=ValidationStatus.VALIDATED,

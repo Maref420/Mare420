@@ -8,13 +8,11 @@ load_dotenv()
 class LLMClient:
     """
     LLM Client for external code generation.
-    
     Enforces CONSTITUTION.md §17 restrictions on external AI usage:
     - Requires permission review before accepting credentials
     - Prevents generation of restricted code categories
     - Maintains audit trail of generation requests
     """
-    
     # Restricted code patterns per CONSTITUTION.md §17
     RESTRICTED_CATEGORIES = {
         "hft_core": ["high-frequency", "HFT core", "millisecond execution", "latency-critical execution"],
@@ -22,8 +20,7 @@ class LLMClient:
         "risk_systems": ["risk engine", "risk management", "position limits", "exposure control"],
         "trading_strategies": ["trading strategy", "strategy logic", "signal generation", "backtest"],
     }
-    
-    def __init__(self):
+    def __init__(self) -> None:
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
             raise ValueError("GROQ_API_KEY is missing in .env file")
@@ -67,9 +64,9 @@ class LLMClient:
         prompt = f"""
         You are a senior software engineer.
         Generate professional, secure, and efficient {language} code for the following requirement:
-        
+
         {requirement}
-        
+
         Ensure the code follows best practices, includes error handling, and is production-ready.
         """
         try:
@@ -79,7 +76,10 @@ class LLMClient:
                 temperature=0.2,
                 max_tokens=2048
             )
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            if content is None:
+                raise RuntimeError("LLM returned empty content")
+            return content
         except Exception as e:  # noqa: BLE001
             raise RuntimeError(f"LLM Generation Failed: {e!s}") from e
 
@@ -93,9 +93,10 @@ class LLMClient:
         prompt = f"""
         Review the following code for security vulnerabilities (SQL Injection, XSS, Hardcoded Secrets).
         Provide a concise report of any issues found.
-        
+
         {code}
         """
+<<<<<<< HEAD
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -105,3 +106,14 @@ class LLMClient:
             return response.choices[0].message.content
         except Exception as e:  # noqa: BLE001
             raise RuntimeError(f"Security analysis failed: {e!s}") from e
+=======
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1
+        )
+        content = response.choices[0].message.content
+        if content is None:
+            raise RuntimeError("LLM security analysis returned empty content")
+        return content
+>>>>>>> a549a4d (fix(governance): real-world validation fixes and security hardening)

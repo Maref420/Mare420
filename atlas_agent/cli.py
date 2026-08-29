@@ -8,7 +8,7 @@ from .models import Language, Requirement
 from .orchestrator import Orchestrator
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="ATLAS AI Agent - Governance-Driven Code Generation")
     parser.add_argument("--requirement", required=True, help="Description of the requirement")
     parser.add_argument("--language", required=True, choices=["python", "rust", "go"], help="Programming language")

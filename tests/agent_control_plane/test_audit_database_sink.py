@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from intelligence.agent_control_plane.audit.database_sink import DatabaseAuditSink
 from intelligence.agent_control_plane.audit.models import (
@@ -39,7 +39,7 @@ class TestDatabaseAuditSink(unittest.TestCase):
         client = FakeClient()
         sink = DatabaseAuditSink(client=client)
 
-        timestamp = datetime(2026, 8, 18, 12, 30, 45, tzinfo=timezone.utc)
+        timestamp = datetime(2026, 8, 18, 12, 30, 45, tzinfo=UTC)
 
         event = AuditRecord(
             contract_version="1.0",

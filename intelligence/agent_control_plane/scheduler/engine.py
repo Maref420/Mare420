@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import ClassVar
 from uuid import uuid4
 
@@ -164,7 +164,7 @@ class AgentScheduler:
                 event_type=AuditEventType.SCHEDULER_TASK,
                 operation_id=task.task_id,
                 agent_id=task.agent_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 action=action,
                 resource=task.task_id,
                 result=result,
