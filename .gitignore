@@ -15,3 +15,8 @@ __pycache__/
 # Runtime artifacts
 logs/
 output/
+
+# Security test artifacts & build metadata
+Alarms/
+libmain.rmeta
+governance-files.tar.gz

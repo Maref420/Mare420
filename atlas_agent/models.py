@@ -34,6 +34,8 @@ class CodingLoopStatus(StrEnum):
     LOOP_EXHAUSTED = "loop_exhausted"
 
 class Requirement(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=False)
+
     description: str
     language: Language
     project_name: str
@@ -42,6 +44,8 @@ class Requirement(BaseModel):
     constraints: dict[str, Any] = {}
 
 class Specification(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=False)
+
     requirement: Requirement
     architecture: str
     modules: list[dict[str, Any]]
@@ -84,6 +88,8 @@ class SecurityFinding(BaseModel):
 
 
 class TestResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=False)
+
     test_name: str
     passed: bool
     duration_ms: float
@@ -91,6 +97,8 @@ class TestResult(BaseModel):
     errors: list[str] = []
 
 class Artifact(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=False)
+
     requirement: Requirement
     specification: Specification | None = None
     generated_files: list[str] = []
@@ -99,7 +107,9 @@ class Artifact(BaseModel):
     test_results: list[TestResult] = []
     status: ApprovalStatus = ApprovalStatus.PENDING
     timestamp: datetime = Field(default_factory=datetime.now)
-    temp_dir: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    # NOTE: temp_dir is FORBIDDEN as top-level field per artifact-v1.json contract.
+    # Use metadata={"temp_dir": "..."} instead.
 
 class AuditLog(BaseModel):
     """Immutable audit record matching audit_events table and audit-contract-v1.json.

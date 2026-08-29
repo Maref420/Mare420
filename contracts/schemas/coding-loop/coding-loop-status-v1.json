@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "type": "enum-contract",
+  "purpose": "Execution states for the coding loop lifecycle",
+  "enum_name": "CodingLoopStatus",
+  "values": ["in_progress", "succeeded", "loop_exhausted"],
+  "rules": {
+    "case_sensitive": true,
+    "extensible": false,
+    "terminal_states": ["succeeded", "loop_exhausted"]
+  },
+  "ownership": {
+    "owner": "Agent Control Plane",
+    "unauthorized_modification": "prohibited"
+  }
+}
