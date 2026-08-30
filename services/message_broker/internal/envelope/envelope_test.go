@@ -27,12 +27,13 @@ func makeValidMemoryEnvelope(payload interface{}) ([]byte, error) {
 }
 
 func TestValidExecutionOutcomeAccepted(t *testing.T) {
+	// Scaled integers per ADR-2026-08-30-004. quantity=1.5 BTC → 150000000 satoshis
 	payload := map[string]interface{}{
 		"order_id": "ord-001",
 		"symbol":   "BTCUSDT",
 		"side":     "buy",
-		"quantity": 1.5,
-		"pnl":      -150.0,
+		"quantity": int64(150000000),
+		"pnl":      int64(-15000),
 		"status":   "filled",
 	}
 	data, err := makeValidMemoryEnvelope(payload)
@@ -53,7 +54,7 @@ func TestValidRiskAssessmentAccepted(t *testing.T) {
 		"assessment_type":       "position_limit",
 		"result":                "pass",
 		"circuit_breaker_state": "normal",
-		"risk_score":            42.0,
+		"risk_score":            int64(4200), // basis points: 4200 = 42.00%
 	}
 	data, err := makeValidMemoryEnvelope(payload)
 	if err != nil {
