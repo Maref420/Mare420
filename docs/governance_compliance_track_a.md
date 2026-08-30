@@ -76,3 +76,17 @@
 - Legacy integration tests updated to match governed API (20/20 passing) → ✅
 - Supabase migration: memory_records validation + immutable audit_events triggers → ✅
 - Direct uncontrolled deletion remains forbidden by governance boundary → ✅
+
+## Cross-Language Memory Experience Event Pipeline
+- ARCH-REVIEW-002 completed and approved by Project Architect → ✅
+- Contract schema memory-experience-event-v1.json created → ✅
+- Rust memory_events.rs producer with 5 unit tests → ✅
+- Go envelope.go memory payload validation with 6 race-safe tests → ✅
+- Python ExperienceEngine with 13 production tests → ✅
+- E2E cross-language integration test with real Go binary validation → ✅
+- Dependency Rule compliance: Rust → Go Broker → Python (no direct Execution→AI) → ✅
+- Triple-layer validation enforced (Rust serialize + Go envelope + Python input) → ✅
+- Audit trail on every capture attempt (SUCCESS + FAILURE paths) → ✅
+- ADR-002 registered in decisions.md → ✅
+- Communication architecture documented → ✅
+- Total: 28 new production tests, 0 failures, 0 warnings → ✅

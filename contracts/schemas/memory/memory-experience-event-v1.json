@@ -1,0 +1,176 @@
+{
+    "version": "1.0",
+    "type": "memory-experience-event",
+    "purpose": "Cross-language event contract for memory ingestion from Rust Core to Python Memory System via Go Broker",
+    "governance": {
+        "specification_id": "memory-experience-event-v1",
+        "policy_version": "1.0",
+        "owner": "Contract Layer",
+        "approved_by": "Project Architect",
+        "approval_date": "2026-08-30",
+        "architecture_review": "ARCH-REVIEW-002"
+    },
+    "message_format": {
+        "contract_version": {
+            "type": "string",
+            "required": true,
+            "fixed_value": "1.0"
+        },
+        "message_type": {
+            "type": "string",
+            "required": true,
+            "fixed_value": "memory.experience.v1"
+        },
+        "source_engine": {
+            "type": "string",
+            "required": true,
+            "allowed_values": ["rust_execution_engine", "rust_risk_engine"]
+        },
+        "timestamp": {
+            "type": "string",
+            "required": true,
+            "format": "ISO-8601 with timezone"
+        },
+        "payload": {
+            "type": "object",
+            "required": true,
+            "schema_ref": "#/event_types"
+        },
+        "metadata": {
+            "type": "object",
+            "required": true,
+            "fields": {
+                "specification_id": {
+                    "type": "string",
+                    "required": true
+                },
+                "policy_version": {
+                    "type": "string",
+                    "required": true
+                },
+                "owner": {
+                    "type": "string",
+                    "required": true
+                },
+                "validation_status": {
+                    "type": "string",
+                    "required": true,
+                    "allowed_values": ["pending", "validated", "rejected"]
+                }
+            }
+        }
+    },
+    "event_types": {
+        "execution_outcome": {
+            "description": "Result of an order execution attempt",
+            "producer": "rust_execution_engine",
+            "fields": {
+                "order_id": {
+                    "type": "string",
+                    "required": true,
+                    "min_length": 1
+                },
+                "symbol": {
+                    "type": "string",
+                    "required": true,
+                    "min_length": 1
+                },
+                "side": {
+                    "type": "string",
+                    "required": true,
+                    "allowed_values": ["buy", "sell"]
+                },
+                "quantity": {
+                    "type": "number",
+                    "required": true,
+                    "minimum": 0
+                },
+                "pnl": {
+                    "type": "number",
+                    "required": true
+                },
+                "status": {
+                    "type": "string",
+                    "required": true,
+                    "allowed_values": ["filled", "rejected", "cancelled", "halted_by_circuit_breaker"]
+                }
+            }
+        },
+        "risk_assessment": {
+            "description": "Outcome of a risk evaluation",
+            "producer": "rust_risk_engine",
+            "fields": {
+                "assessment_type": {
+                    "type": "string",
+                    "required": true,
+                    "min_length": 1
+                },
+                "result": {
+                    "type": "string",
+                    "required": true,
+                    "allowed_values": ["pass", "warn", "block"]
+                },
+                "circuit_breaker_state": {
+                    "type": "string",
+                    "required": true,
+                    "allowed_values": ["normal", "tripped", "cooldown"]
+                },
+                "risk_score": {
+                    "type": "number",
+                    "required": true,
+                    "minimum": 0,
+                    "maximum": 100
+                }
+            }
+        },
+        "agent_decision": {
+            "description": "Record of an AI agent decision point",
+            "producer": "rust_execution_engine",
+            "fields": {
+                "decision_type": {
+                    "type": "string",
+                    "required": true,
+                    "min_length": 1
+                },
+                "input_summary": {
+                    "type": "string",
+                    "required": true,
+                    "min_length": 1
+                },
+                "output_action": {
+                    "type": "string",
+                    "required": true,
+                    "min_length": 1
+                },
+                "confidence": {
+                    "type": "number",
+                    "required": true,
+                    "minimum": 0,
+                    "maximum": 1
+                }
+            }
+        }
+    },
+    "rules": {
+        "extra_fields": "forbidden",
+        "unknown_event_type": "rejected",
+        "missing_required_field": "rejected",
+        "direct_storage_access": "forbidden",
+        "cross_language_direct_call": "forbidden",
+        "transport_must_use_broker": true,
+        "audit_logging_required": true
+    },
+    "data_flow": {
+        "producer": "Rust Core Engine (core_engine/execution)",
+        "transport": "Go Message Broker (services/message_broker)",
+        "consumer": "Python ExperienceEngine (intelligence/memory_system/experience_engine)",
+        "storage": "Supabase via MemoryKernel (infrastructure/database)"
+    },
+    "compliance": {
+        "engine_contract": "engine-contract-v1.json",
+        "memory_contract": "memory-contract-v1.json",
+        "lifecycle_policy": "memory-lifecycle-policy.yaml",
+        "architecture_review": "ARCH-REVIEW-002",
+        "dependency_rule_compliance": "Rust → Infrastructure (Go Broker) → Python (no direct Execution→AI)"
+    }
+}

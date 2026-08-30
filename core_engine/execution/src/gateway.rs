@@ -21,15 +21,21 @@ impl BrokerGateway {
         );
         let body = serde_json::to_vec(&msg)
             .map_err(|e| GatewayError::Serialization(e.to_string()))?;
+        self.publish_raw(&body)
+    }
+
+    /// Publish pre-serialized bytes to the broker.
+    /// Used by memory_events module for non-Order payloads.
+    pub fn publish_raw(&self, body: &[u8]) -> Result<(), GatewayError> {
         let url = format!("{}/publish", self.base_url);
         let resp = ureq::post(&url)
             .set("Content-Type", "application/json")
-            .send_bytes(&body)
+            .send_bytes(body)
             .map_err(|e| GatewayError::Http(e.to_string()))?;
         if resp.status() != 200 {
             return Err(GatewayError::BrokerRejected(resp.status()));
         }
-        tracing::info!("Order {} published to broker", order.order_id);
+        tracing::info!("Event published to broker");
         Ok(())
     }
 }

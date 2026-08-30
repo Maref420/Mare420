@@ -122,3 +122,50 @@ v0.1
 - Direction: Risk → Execution (read-only dependency via atlas-risk-engine crate)
 - No reverse dependency: Execution MUST NOT call back into Risk internals
 - Envelope re-use: Execution re-exports atlas_risk_engine::envelope (no duplication)
+
+---
+
+## Memory Experience Event Pipeline
+
+Version:
+v1.0
+
+Added:
+2026-08-30
+
+Architecture Review:
+ARCH-REVIEW-002
+
+### Data Flow
+
+Rust Core Engine (Execution/Risk)
+    |
+    | EngineMessage envelope (memory.experience.v1)
+    | Topic: memory.experience.v1
+    v
+Go Message Broker (Infrastructure)
+    |
+    | Envelope validation per memory-experience-event-v1.json
+    | Channel transport / future NATS
+    v
+Python ExperienceEngine (AI Engine)
+    |
+    | MemoryKernel.store() → Episodic MemoryRecord
+    v
+Supabase (via MemoryStorage interface)
+
+### Contract
+
+Schema: contracts/schemas/memory/memory-experience-event-v1.json
+
+Event Types:
+- execution_outcome: Order execution results
+- risk_assessment: Risk evaluation outcomes
+- agent_decision: AI agent decision records
+
+### Governance Compliance
+
+- Dependency Rule: Rust → Infrastructure (Go) → Python (no direct Execution→AI)
+- Module Ownership: Each module stays within responsibilities
+- Audit: Every capture produces immutable audit event
+- Validation: Triple-layer (Rust serialize + Go envelope + Python input)

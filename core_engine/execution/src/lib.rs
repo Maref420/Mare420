@@ -4,3 +4,4 @@ pub mod validator;
 pub mod order_manager;
 pub mod connector;
 pub mod gateway;
+pub mod memory_events;
