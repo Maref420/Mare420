@@ -1,11 +1,16 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "type": "safety-contract",
   "purpose": "Define circuit breaker thresholds and behavior for trading halt",
-  "required_fields": ["max_consecutive_losses", "max_daily_loss_pct", "cooldown_seconds", "halt_action"],
+  "required_fields": [
+    "max_consecutive_losses",
+    "max_daily_loss_pct",
+    "cooldown_seconds",
+    "halt_action"
+  ],
   "field_types": {
     "max_consecutive_losses": "int(ge=1)",
-    "max_daily_loss_pct": "float(gt=0,le=100)",
+    "max_daily_loss_pct": "integer(gt=0,le=10000)",
     "cooldown_seconds": "int(ge=60)",
     "halt_action": "enum(close_all,stop_new_orders,full_halt)"
   },
@@ -17,6 +22,11 @@
   },
   "ownership": {
     "owner": "Risk Engine",
-    "unauthorized_modification": "prohibited"
+    "unauthorized_modification": "prohibited",
+    "last_deterministic_migration": "2026-08-30",
+    "migration_reason": "Compliance with rust-policy.yaml deterministic_processing_required"
+  },
+  "notes": {
+    "max_daily_loss_pct": "Migrated float(gt=0,le=100) \u2192 integer(gt=0,le=10000). Basis points (1 bp = 0.01%). 500 = 5.00%"
   }
 }
