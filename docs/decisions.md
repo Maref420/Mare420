@@ -179,3 +179,15 @@ Modified:
 - **Constraints**: All numeric fields use scaled integers or basis points. No floats. Metadata bounded. additionalProperties: false.
 - **Integrity**: Additive only. No existing schemas modified.
 - **Next Steps**: Go Broker validation update, producer/consumer implementation
+
+## ADR-2026-08-30-010: Market + Strategy Events Activation
+- **Date**: 2026-08-30
+- **Status**: Executed
+- **Context**: MarketUpdate and StrategySignal schemas existed but had no active data flow. No access policy, no broker registration, no producer implementation.
+- **Decision**:
+  1. Created event-access-policy-v1.json schema + configs/event-access-policy.yaml instance defining authorized producers/consumers for all 7 event types
+  2. Updated Go Broker envelope.go: memoryEventTypes → eventTypes (6 types), fixed float64 → int64 in payload structs
+  3. Created core_engine/strategy/ Rust skeleton with StrategySignalEventV1 struct, validation, 5 unit tests, clippy clean
+- **Access Control**: Each event type has explicit producer/consumer module list in configs/event-access-policy.yaml
+- **Integrity**: Additive only. Go Broker backup preserved. No existing schemas modified.
+- **Next Steps**: Implement MarketUpdate emitter in market_data engine, implement StrategySignal emitter in strategy engine, add consumer subscribers

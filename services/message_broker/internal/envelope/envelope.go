@@ -28,11 +28,20 @@ var validEngines = map[string]bool{
 	"rust_engine": true, "python_engine": true, "go_engine": true,
 }
 
-// memoryEventTypes defines allowed event types for memory.experience.v1.
-var memoryEventTypes = map[string]bool{
+// eventTypes defines all authorized event types per configs/event-access-policy.yaml.
+// Governed by contracts/schemas/events/event-access-policy-v1.json.
+// ADR-2026-08-30-010.
+var eventTypes = map[string]bool{
+	// Memory events
 	"execution_outcome": true,
 	"risk_assessment":   true,
 	"agent_decision":    true,
+	// Market events
+	"market_update":     true,
+	// Strategy events
+	"strategy_signal":   true,
+	// System events
+	"system_status":     true,
 }
 
 // executionOutcomePayload mirrors memory-experience-event-v1.json execution_outcome fields.
@@ -40,8 +49,8 @@ type executionOutcomePayload struct {
 	OrderID  string  `json:"order_id"`
 	Symbol   string  `json:"symbol"`
 	Side     string  `json:"side"`
-	Quantity float64 `json:"quantity"`
-	PnL      float64 `json:"pnl"`
+	QuantityScaled int64 `json:"quantity"`
+	PnLScaled      int64 `json:"pnl"`
 	Status   string  `json:"status"`
 }
 

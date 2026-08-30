@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EventAccessPolicyV1",
+  "description": "Defines which modules are authorized to produce and consume each event type. Governed by governance/policies/security-policy.yaml.",
+  "type": "object",
+  "required": ["version", "policies"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "const": "1.0" },
+    "policies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["event_type", "producers", "consumers", "transport", "validation_schema"],
+        "additionalProperties": false,
+        "properties": {
+          "event_type": { "type": "string" },
+          "producers": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "Authorized producer module identifiers"
+          },
+          "consumers": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "Authorized consumer module identifiers"
+          },
+          "transport": { "type": "string", "enum": ["go_broker_http", "go_broker_nats", "direct_ffi"] },
+          "validation_schema": { "type": "string", "description": "Path to JSON schema for payload validation" },
+          "audit_required": { "type": "boolean", "default": true },
+          "max_payload_bytes": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}
