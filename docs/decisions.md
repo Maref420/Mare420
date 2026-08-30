@@ -204,3 +204,14 @@ Modified:
 - **Constraints**: Current backend = env vars (backward compatible). No code changes needed for future Vault migration.
 - **Integrity**: Additive only. Original start.sh backed up. No existing auth logic modified.
 - **Next Steps**: Rotate JWT_SECRET_KEY, implement Vault backend when infrastructure ready
+
+## ADR-2026-08-30-012: CI/CD Governance Enforcement Gate
+- **Date**: 2026-08-30
+- **Status**: Executed
+- **Context**: No automated enforcement of governance policies. Manual review only. Risk of regression in deterministic types, secret hygiene, and schema validity.
+- **Decision**: Created two-layer enforcement:
+  1. Makefile with `ci-gate` target: rust-check, rust-test, rust-clippy, go-check, go-test, python-test, schema-validate, secret-validate, governance-audit
+  2. Pre-commit hook: blocks hardcoded secrets, unwrap/expect in production Rust, invalid JSON schemas
+- **Constraints**: All checks are non-destructive and idempotent. Pre-commit is local-only; CI pipeline should mirror Makefile targets.
+- **Integrity**: Additive only. No existing CI/config modified.
+- **Usage**: `make ci-gate` for full check, `make help` for individual targets
