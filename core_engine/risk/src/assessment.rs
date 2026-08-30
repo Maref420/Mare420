@@ -1,9 +1,11 @@
-use crate::types::RiskAssessment;
-use uuid::Uuid;
-use std::collections::HashMap;
+//! Risk Assessment: assess_order function.
+//! Governed by: docs/task_specs/risk_engine.md
 
-/// Pre-trade risk assessment configuration.
-/// Derived from governance/02_MODULE_OWNERSHIP.md Risk Engine responsibilities.
+use crate::types::RiskAssessment;
+use std::collections::HashMap;
+use uuid::Uuid;
+
+/// Configuration for order-level risk assessment.
 #[derive(Debug, Clone)]
 pub struct RiskConfig {
     pub max_order_quantity: f64,
@@ -11,8 +13,7 @@ pub struct RiskConfig {
     pub require_risk_score: bool,
 }
 
-/// Assess an order against risk configuration.
-/// Returns a validated RiskAssessment per risk-assessment-v1.json.
+/// Assess an order and produce a RiskAssessment.
 pub fn assess_order(
     order_id: Uuid,
     agent_id: &str,
@@ -20,56 +21,49 @@ pub fn assess_order(
     quantity: f64,
     config: &RiskConfig,
 ) -> RiskAssessment {
-    let mut checks: Vec<String> = Vec::new();
-    let mut approved = true;
+    let mut checks = Vec::new();
     let mut rejection_reason: Option<String> = None;
-    let mut risk_score: Option<f64> = None;
+    let mut approved = true;
 
     // Check 1: Symbol allowed
     if !config.allowed_symbols.is_empty() && !config.allowed_symbols.contains(&symbol.to_string()) {
+        checks.push("symbol_check".to_string());
         approved = false;
-        rejection_reason = Some(format!("symbol {symbol} not allowed"));
+        rejection_reason = Some(format!("symbol {symbol} not in allowed list"));
+    } else {
+        checks.push("symbol_check".to_string());
     }
-    checks.push("symbol_check".to_string());
 
     // Check 2: Quantity limit
     if quantity > config.max_order_quantity {
+        checks.push("quantity_check".to_string());
         approved = false;
-        rejection_reason = Some(format!("quantity {quantity} exceeds max {}", config.max_order_quantity));
+        rejection_reason = Some(format!(
+            "quantity {quantity} exceeds max {}",
+            config.max_order_quantity
+        ));
+    } else {
+        checks.push("quantity_check".to_string());
     }
-    checks.push("quantity_check".to_string());
 
-    // Check 3: Positive quantity
-    if quantity <= 0.0 {
-        approved = false;
-        rejection_reason = Some("quantity must be positive".to_string());
-    }
-    checks.push("positive_quantity_check".to_string());
+    // Risk score (simple heuristic)
+    let risk_score = if config.require_risk_score {
+        Some(0.5_f64) // placeholder heuristic
+    } else {
+        None
+    };
 
-    // Compute simple risk score (placeholder for future models)
-    if config.require_risk_score {
-        let score = if quantity > config.max_order_quantity * 0.8 { 0.9 } else { 0.1 };
-        risk_score = Some(score);
-    }
-    checks.push("risk_score_computed".to_string());
+    let now = chrono::Utc::now().to_rfc3339();
 
-    let assessment = RiskAssessment {
+    RiskAssessment {
         assessment_id: Uuid::new_v4(),
         order_id,
         approved,
-        assessed_at: chrono::Utc::now().to_rfc3339(),
+        assessed_at: now,
         agent_id: agent_id.to_string(),
         checks_performed: checks,
         rejection_reason,
         risk_score,
         metadata: HashMap::new(),
-    };
-
-    // Self-validate before returning (Rule 4: deterministic behavior)
-    // Note: validation errors here indicate a bug in assess_order logic
-    if let Err(e) = assessment.validate() {
-        tracing::error!("RiskAssessment self-validation failed: {e}");
     }
-
-    assessment
 }

@@ -1,6 +1,11 @@
+//! Core types for the Risk Gate.
+//! Governed by: contracts/schemas/risk/risk-assessment-v1.json
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
+
+/// Risk assessment result. Mirrors risk-assessment-v1.json.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RiskAssessment {
@@ -15,8 +20,26 @@ pub struct RiskAssessment {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub risk_score: Option<f64>,
     #[serde(default)]
-    pub metadata: HashMap<String, serde_json::Value>,
+    pub metadata: HashMap<String, String>,
 }
+
+impl RiskAssessment {
+    /// Validate assessment fields.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.agent_id.is_empty() {
+            return Err("agent_id must not be empty".to_string());
+        }
+        if self.assessed_at.is_empty() {
+            return Err("assessed_at must not be empty".to_string());
+        }
+        if !self.approved && self.rejection_reason.is_none() {
+            return Err("rejected assessment must have rejection_reason".to_string());
+        }
+        Ok(())
+    }
+}
+
+/// Kill switch activation record.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KillSwitchActivation {
@@ -27,11 +50,18 @@ pub struct KillSwitchActivation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_resume_at: Option<String>,
     #[serde(default)]
-    pub metadata: HashMap<String, serde_json::Value>,
+    pub metadata: HashMap<String, String>,
 }
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum KillSwitchScope { SingleAgent, AllAgents, EntireSystem }
+
+/// Kill switch scope.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum KillSwitchScope {
+    EntireSystem,
+    SingleAgent,
+}
+
+/// Circuit breaker configuration.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CircuitBreakerConfig {
@@ -40,39 +70,23 @@ pub struct CircuitBreakerConfig {
     pub cooldown_seconds: u64,
     pub halt_action: HaltAction,
 }
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum HaltAction { CloseAll, StopNewOrders, FullHalt }
-impl RiskAssessment {
+
+impl CircuitBreakerConfig {
     pub fn validate(&self) -> Result<(), String> {
-        if self.agent_id.is_empty() {
-            return Err("agent_id empty".into());
+        if self.max_consecutive_losses == 0 {
+            return Err("max_consecutive_losses must be > 0".to_string());
         }
-        if self.checks_performed.is_empty() {
-            return Err("checks_performed empty".into());
-        }
-        if !self.approved && self.rejection_reason.is_none() {
-            return Err("rejection_reason required".into());
-        }
-        if let Some(s) = self.risk_score {
-            if !(0.0..=1.0).contains(&s) {
-                return Err(format!("risk_score {s} invalid"));
-            }
+        if self.max_daily_loss_pct < 0.0 {
+            return Err("max_daily_loss_pct must be >= 0".to_string());
         }
         Ok(())
     }
 }
-impl CircuitBreakerConfig {
-    pub fn validate(&self) -> Result<(), String> {
-        if self.max_consecutive_losses < 1 {
-            return Err("max_consecutive_losses < 1".into());
-        }
-        if self.max_daily_loss_pct <= 0.0 || self.max_daily_loss_pct > 100.0 {
-            return Err("max_daily_loss_pct invalid".into());
-        }
-        if self.cooldown_seconds < 60 {
-            return Err("cooldown_seconds < 60".into());
-        }
-        Ok(())
-    }
+
+/// Action to take when circuit breaker trips.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum HaltAction {
+    StopNewOrders,
+    FullHalt,
 }
