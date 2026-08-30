@@ -11,6 +11,9 @@ class AuditEventType(StrEnum):
     MEMORY_FORGET = "memory.forget"
     COMMUNICATION_SEND = "communication.send"
     SCHEDULER_TASK = "scheduler.task"
+    STRATEGY_SIGNAL_RECEIVED = "strategy_signal.received"
+    STRATEGY_SIGNAL_EXECUTED = "strategy_signal.executed"
+    RISK_ASSESSMENT = "risk.assessment"
 
 
 class AuditAction(StrEnum):
