@@ -1,0 +1,26 @@
+[package]
+name = "atlas-market-data"
+version = "0.1.0"
+edition = "2021"
+description = "Production-grade market data normalization engine. Governed by tick-data-v1.json."
+license = "Proprietary"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+
+[dev-dependencies]
+jsonschema = "0.18"
+
+# Governance: rust-policy.yaml compliance
+[lints.rust]
+unsafe_code = "forbid"
+unused_imports = "deny"
+dead_code = "deny"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
