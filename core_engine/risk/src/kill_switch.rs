@@ -1,67 +1,54 @@
+//! Kill Switch Manager.
+//! Governed by: risk/risk_engine/kill_switch/README.md
+
 use crate::types::{KillSwitchActivation, KillSwitchScope};
-use std::collections::HashMap;
 
-/// Current state of the kill switch.
-#[derive(Debug, Clone, PartialEq)]
-pub enum KillSwitchState {
-    Inactive,
-    Active(KillSwitchActivation),
-}
-
-/// Manages kill switch lifecycle per kill-switch-v1.json.
-/// Deactivation requires manual approval (enforced by caller).
-#[derive(Debug, Clone)]
+/// Manages kill switch state with full audit trail.
 pub struct KillSwitchManager {
-    state: KillSwitchState,
+    activation: Option<KillSwitchActivation>,
 }
 
 impl KillSwitchManager {
     pub fn new() -> Self {
-        Self { state: KillSwitchState::Inactive }
+        Self { activation: None }
     }
 
     pub fn is_active(&self) -> bool {
-        matches!(self.state, KillSwitchState::Active(_))
+        self.activation.is_some()
     }
 
     pub fn current_activation(&self) -> Option<&KillSwitchActivation> {
-        match &self.state {
-            KillSwitchState::Active(a) => Some(a),
-            KillSwitchState::Inactive => None,
-        }
+        self.activation.as_ref()
     }
 
-    /// Activate the kill switch. Returns the activation record for audit.
+    /// Activate the kill switch. Returns owned activation record.
     pub fn activate(
         &mut self,
         trigger_reason: String,
         activated_by: String,
         scope: KillSwitchScope,
     ) -> KillSwitchActivation {
-        let activation = KillSwitchActivation {
+        let now = chrono::Utc::now().to_rfc3339();
+        let record = KillSwitchActivation {
             trigger_reason,
             activated_by,
-            activated_at: chrono::Utc::now().to_rfc3339(),
+            activated_at: now,
             scope,
             auto_resume_at: None,
-            metadata: HashMap::new(),
+            metadata: std::collections::HashMap::new(),
         };
-        self.state = KillSwitchState::Active(activation.clone());
-        tracing::warn!("Kill switch ACTIVATED: {:?}", activation.trigger_reason);
-        activation
+        tracing::error!("KILL SWITCH ACTIVATED: {:?}", record);
+        self.activation = Some(record.clone());
+        record
     }
 
-    /// Deactivate the kill switch. Caller must verify manual approval.
-    /// Returns the previous activation record for audit.
+    /// Deactivate the kill switch. Returns previous activation if any.
     pub fn deactivate(&mut self, deactivated_by: &str) -> Option<KillSwitchActivation> {
-        match self.state.clone() {
-            KillSwitchState::Active(prev) => {
-                tracing::info!("Kill switch DEACTIVATED by {deactivated_by}");
-                self.state = KillSwitchState::Inactive;
-                Some(prev)
-            }
-            KillSwitchState::Inactive => None,
+        let prev = self.activation.take();
+        if prev.is_some() {
+            tracing::info!("Kill switch deactivated by {deactivated_by}");
         }
+        prev
     }
 }
 
