@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RiskAssessmentEventV1",
+  "description": "Event emitted after pre-trade risk assessment. Governed by risk-assessment-v1.1. Scaled integers per ADR-2026-08-30-004.",
+  "type": "object",
+  "required": ["event_id", "assessment_id", "order_id", "approved", "assessed_at", "agent_id", "checks_performed"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "assessment_id": { "type": "string", "format": "uuid" },
+    "order_id": { "type": "string", "format": "uuid" },
+    "approved": { "type": "boolean" },
+    "assessed_at": { "type": "string", "format": "date-time" },
+    "agent_id": { "type": "string", "minLength": 1 },
+    "checks_performed": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "rejection_reason": { "type": ["string", "null"] },
+    "risk_score": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000 },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    }
+  }
+}
