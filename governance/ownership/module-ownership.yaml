@@ -5,3 +5,13 @@ ownership:
   ownership_required: true
   cross_domain_modification: prohibited
   unauthorized_changes: prohibited
+
+# --- Added 2026-08-30: Market Data Module Ownership ---
+- module: market_data
+  owner: core_engine_team
+  language: rust
+  contracts:
+    - tick-data-v1
+  policy_ref: governance/policies/rust-policy.yaml
+  last_updated: "2026-08-30"
+  change_reason: "P0 Market Data Contract approval per ADR-2026-08-30-001"
