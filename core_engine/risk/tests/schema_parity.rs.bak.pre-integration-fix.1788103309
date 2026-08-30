@@ -1,9 +1,3 @@
-// Governance: Integration test file.
-// clippy::expect_used and clippy::panic allowed ONLY in test scope.
-// Production code remains strictly compliant per rust-policy.yaml.
-// See ADR-2026-08-30-006.
-#![allow(clippy::expect_used, clippy::panic)]
-
 use atlas_risk_engine::types::RiskAssessment;
 use atlas_risk_engine::envelope::EngineMessage;
 use atlas_risk_engine::assessment::{assess_order, RiskConfig};

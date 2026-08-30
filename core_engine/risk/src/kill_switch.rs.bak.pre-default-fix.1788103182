@@ -64,9 +64,3 @@ impl KillSwitchManager {
         }
     }
 }
-
-impl Default for KillSwitchManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
