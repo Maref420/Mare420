@@ -146,6 +146,39 @@ serde (derive), uuid (v4, serde), chrono (serde)
 - Log sensitive data (API keys, account info)
 - Panic on invalid input (always return Result)
 
+
+## Integration Tests (Ignored by Default)
+
+These tests verify end-to-end pipeline with live Go Broker. They are `#[ignore]`
+because they require external services and must not run in CI.
+
+| Test | What it verifies | Prerequisite |
+|------|-----------------|--------------|
+| `rust_execution_outcome_reaches_broker` | ExecutionOutcome → Broker → NATS | Broker on localhost:8090 |
+| `rust_risk_assessment_reaches_broker` | RiskAssessmentEvent → Broker → NATS | Broker on localhost:8090 |
+| `rust_agent_decision_reaches_broker` | AgentDecisionEvent → Broker → NATS | Broker on localhost:8090 |
+
+### How to Run
+
+    # Option 1: Makefile (recommended)
+    make test-integration
+
+    # Option 2: Direct cargo command
+    cd core_engine/execution
+    cargo test --test prod_memory_pipeline -- --ignored --nocapture
+
+### When to Enable Permanently
+
+When Go Broker is deployed to a stable staging environment, remove `#[ignore]`
+and add broker URL as environment variable instead of hardcoded constant.
+
+### Discoverability
+
+Search for `INTEGRATION_TEST_MARKER` across the codebase to find all ignored
+integration tests:
+
+    grep -rn "INTEGRATION_TEST_MARKER" .
+
 ## Known Gaps
 
 | Gap | Impact | Priority |

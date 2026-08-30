@@ -1,6 +1,12 @@
-//! Production integration test: Rust memory_events → real Go Broker.
-//! Requires broker running on localhost:8090.
-//! Run manually: cargo test --test prod_memory_pipeline -- --ignored
+//! INTEGRATION TEST — REQUIRES LIVE SERVICES
+//!
+//! Status: IGNORED BY DEFAULT (requires external dependency)
+//! Service: Go Message Broker on http://localhost:8090
+//! Activate: make test-integration
+//!     or: cargo test --test prod_memory_pipeline -- --ignored --nocapture
+//!
+//! When to enable: After deploying Go Broker to staging/production.
+//! Search tag: INTEGRATION_TEST_MARKER
 
 use atlas_execution_engine::gateway::BrokerGateway;
 use atlas_execution_engine::memory_events::{
