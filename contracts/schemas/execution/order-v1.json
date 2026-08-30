@@ -1,17 +1,30 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "type": "model-contract",
   "purpose": "Define structure for trade orders sent to exchanges",
-  "required_fields": ["order_id", "symbol", "side", "quantity", "order_type", "timestamp", "agent_id"],
-  "optional_fields": ["price", "stop_price", "time_in_force", "metadata"],
+  "required_fields": [
+    "order_id",
+    "symbol",
+    "side",
+    "quantity",
+    "order_type",
+    "timestamp",
+    "agent_id"
+  ],
+  "optional_fields": [
+    "price",
+    "stop_price",
+    "time_in_force",
+    "metadata"
+  ],
   "field_types": {
     "order_id": "uuid",
     "symbol": "string(min_length=1)",
     "side": "enum(buy,sell)",
-    "quantity": "float(gt=0)",
+    "quantity": "integer(gt=0)",
     "order_type": "enum(market,limit,stop_limit,stop_market)",
-    "price": "float(gt=0)|null",
-    "stop_price": "float(gt=0)|null",
+    "price": "integer(gt=0)|null",
+    "stop_price": "integer(gt=0)|null",
     "time_in_force": "enum(gtc,ioc,fok,gtd)|null",
     "timestamp": "datetime(auto_now)",
     "agent_id": "string(min_length=1)",
@@ -26,6 +39,13 @@
   },
   "ownership": {
     "owner": "Execution Engine",
-    "unauthorized_modification": "prohibited"
+    "unauthorized_modification": "prohibited",
+    "last_deterministic_migration": "2026-08-30",
+    "migration_reason": "Compliance with rust-policy.yaml deterministic_processing_required"
+  },
+  "notes": {
+    "quantity": "Migrated float(gt=0) \u2192 integer(gt=0). Scaled to smallest asset unit per exchange config",
+    "price": "Migrated float(gt=0)|null \u2192 integer(gt=0)|null. Scaled to smallest currency unit per exchange config",
+    "stop_price": "Migrated float(gt=0)|null \u2192 integer(gt=0)|null. Scaled to smallest currency unit per exchange config"
   }
 }

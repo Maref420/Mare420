@@ -1,9 +1,20 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "type": "model-contract",
   "purpose": "Pre-trade risk assessment result",
-  "required_fields": ["assessment_id", "order_id", "approved", "assessed_at", "agent_id", "checks_performed"],
-  "optional_fields": ["rejection_reason", "risk_score", "metadata"],
+  "required_fields": [
+    "assessment_id",
+    "order_id",
+    "approved",
+    "assessed_at",
+    "agent_id",
+    "checks_performed"
+  ],
+  "optional_fields": [
+    "rejection_reason",
+    "risk_score",
+    "metadata"
+  ],
   "field_types": {
     "assessment_id": "uuid",
     "order_id": "uuid",
@@ -12,7 +23,7 @@
     "agent_id": "string(min_length=1)",
     "checks_performed": "list[string](min_length=1)",
     "rejection_reason": "string|null",
-    "risk_score": "float(ge=0,le=1)|null",
+    "risk_score": "integer(ge=0,le=10000)|null",
     "metadata": "dict[string,any](default={})"
   },
   "rules": {
@@ -26,6 +37,11 @@
   },
   "ownership": {
     "owner": "Risk Engine",
-    "unauthorized_modification": "prohibited"
+    "unauthorized_modification": "prohibited",
+    "last_deterministic_migration": "2026-08-30",
+    "migration_reason": "Compliance with rust-policy.yaml deterministic_processing_required"
+  },
+  "notes": {
+    "risk_score": "Migrated float(ge=0,le=1)|null \u2192 integer(ge=0,le=10000)|null. Scaled: 0-10000 maps to 0.0000-1.0000. Deterministic representation."
   }
 }
