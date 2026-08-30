@@ -24,6 +24,6 @@ ownership:
   contracts:
     - strategy-signal-event-v1
   policy_ref: governance/policies/rust-policy.yaml
-  status: skeleton_created
-  last_updated: "2026-08-30"
-  change_reason: "P1 Strategy Event Activation per ADR-2026-08-30-010"
+  status: parity_verified
+  last_updated: "2026-08-31"
+  change_reason: "Cross-language parity verified. 10/10 parity + 17/17 Rust + 11/11 Python tests green."
