@@ -142,3 +142,16 @@ Modified:
 - **Integrity**: No policy files modified. No parallel paths created.
 - **Files Affected**: core_engine/market_data/src/types.rs (test module only)
 - **Validation**: cargo check ✅ | cargo test ✅ | cargo clippy --all-targets ✅
+
+## ADR-2026-08-30-007: Risk Engine Rust Skeleton Created
+- **Date**: 2026-08-30
+- **Status**: Executed
+- **Context**: P2 Risk/Execution implementation requires Rust skeleton matching updated contracts (risk-assessment-v1.1, circuit-breaker-v1.1).
+- **Decision**: Created core_engine/risk/ with:
+  - RiskAssessmentV1 struct (scaled risk_score 0-10000)
+  - CircuitBreakerConfigV1 struct (loss in basis points)
+  - HaltAction enum (close_all, stop_new_orders, full_halt)
+  - Explicit validation with no unwrap/expect/panic in production code
+  - 5 unit tests, clippy clean
+- **Integrity**: Additive only. No existing files modified.
+- **Contracts**: risk-assessment-v1.1, circuit-breaker-v1.1
