@@ -55,3 +55,24 @@
   - intelligence/agent_runtime/execution/ → Python Agent Tasks (Layer 1) ✅
   - contracts/schemas/execution/ → Shared schemas ✅
   - contracts/events/execution/ → Event definitions ✅
+
+## Memory Lifecycle Governance Enforcement
+- GAP-1 fixed: Forgetting Engine now enforces memory_type-aware lifecycle policy → ✅
+- Semantic memory deletion requires explicit_policy_id → ✅
+- Episodic automatic deletion requires policy context → ✅
+- Working memory expiry path implemented via forget_if_expired_working_memory() → ✅
+- GAP-3 fixed: Audit result is recorded after actual delete attempt → ✅
+- Failed delete is audited as FAILURE, not SUCCESS → ✅
+- Supabase migration added for memory_records validation and immutable audit_events → ✅
+- Direct uncontrolled deletion remains forbidden by governance boundary → ✅
+
+## Memory Lifecycle Governance Enforcement
+- GAP-1 fixed: Forgetting Engine enforces memory_type-aware lifecycle policy → ✅
+- Semantic memory deletion requires explicit_policy_id → ✅
+- Episodic automatic deletion requires policy context → ✅
+- Working memory expiry path via forget_if_expired_working_memory() → ✅
+- GAP-3 fixed: Audit result recorded after actual delete attempt → ✅
+- Failed delete audited as FAILURE, not SUCCESS → ✅
+- Legacy integration tests updated to match governed API (20/20 passing) → ✅
+- Supabase migration: memory_records validation + immutable audit_events triggers → ✅
+- Direct uncontrolled deletion remains forbidden by governance boundary → ✅
