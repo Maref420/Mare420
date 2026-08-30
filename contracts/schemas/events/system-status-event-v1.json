@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SystemStatusEventV1",
+  "description": "System health and operational status. Governed by contracts/events/system/README.md. Producer: Monitoring System. Deterministic types only.",
+  "type": "object",
+  "required": ["event_id", "service_name", "component", "status", "timestamp_ns"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "service_name": { "type": "string", "minLength": 1, "maxLength": 64, "description": "e.g., market_data_engine, risk_engine, message_broker" },
+    "component": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Sub-component within service" },
+    "status": { "type": "string", "enum": ["healthy", "degraded", "unhealthy", "starting", "stopping", "maintenance"] },
+    "timestamp_ns": { "type": "integer", "minimum": 1 },
+    "error_code": { "type": ["string", "null"], "maxLength": 64, "description": "ErrorEnvelope code if status != healthy" },
+    "error_message": { "type": ["string", "null"], "maxLength": 1024 },
+    "cpu_usage_bps": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000, "description": "CPU usage in basis points: 5000 = 50.00%" },
+    "memory_usage_bps": { "type": ["integer", "null"], "minimum": 0, "maximum": 10000, "description": "Memory usage in basis points" },
+    "uptime_seconds": { "type": ["integer", "null"], "minimum": 0 },
+    "version": { "type": ["string", "null"], "maxLength": 32, "description": "Service version string" },
+    "trace_id": { "type": ["string", "null"], "maxLength": 64 },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    }
+  }
+}

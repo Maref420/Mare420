@@ -1,15 +1,18 @@
 # Events Contracts
 
 ## Overview
-Formalized event schemas for cross-language event-driven communication. All events are serialized as JSON and transported via Go Message Broker (`services/message_broker/`). Numeric fields use scaled integers per ADR-2026-08-30-004.
+Formalized event schemas for cross-language event-driven communication. All events are serialized as JSON and transported via Go Message Broker (`services/message_broker/`). Numeric fields use scaled integers or basis points per ADR-2026-08-30-004.
 
 ## Active Event Schemas
-| Event | Version | Schema Path | Producer | Consumer |
-|-------|---------|-------------|----------|----------|
+| Event | Version | Schema Path | Producer | Consumers |
+|-------|---------|-------------|----------|-----------|
 | Memory Experience | v1 | `contracts/schemas/memory/memory-experience-event-v1.json` | Rust/Python | Python (ExperienceEngine) |
-| Execution Outcome | v1 | `contracts/schemas/events/execution-outcome-event-v1.json` | Rust (Execution) | Python (MemorySubscriber), Go (Broker) |
-| Risk Assessment | v1 | `contracts/schemas/events/risk-assessment-event-v1.json` | Rust (Risk Engine) | Python (MemorySubscriber), Go (Broker) |
-| Agent Decision | v1 | `contracts/schemas/events/agent-decision-event-v1.json` | Python (AI Agents) | Python (MemorySubscriber), Go (Broker) |
+| Execution Outcome | v1 | `contracts/schemas/events/execution-outcome-event-v1.json` | Rust (Execution) | Python, Go Broker |
+| Risk Assessment | v1 | `contracts/schemas/events/risk-assessment-event-v1.json` | Rust (Risk Engine) | Python, Go Broker |
+| Agent Decision | v1 | `contracts/schemas/events/agent-decision-event-v1.json` | Python (AI Agents) | Python, Go Broker |
+| Strategy Signal | v1 | `contracts/schemas/events/strategy-signal-event-v1.json` | Rust (Strategy Engine) | Execution, Risk, AI, Analytics |
+| Market Update | v1 | `contracts/schemas/events/market-update-event-v1.json` | Rust (Market Data Engine) | Strategy, AI, Risk, Analytics |
+| System Status | v1 | `contracts/schemas/events/system-status-event-v1.json` | Monitoring System | Core, AI, Services, Interface |
 
 ## Data Flow (End-to-End)
 1. **Producer** emits event as JSON conforming to schema
@@ -29,3 +32,8 @@ Formalized event schemas for cross-language event-driven communication. All even
 - **Bounded**: Metadata limited to 16 keys × 256 chars
 - **Audited**: Every event crossing logged per ffi-boundary rules
 - **Error Handling**: Invalid events rejected with ErrorEnvelope at broker
+
+## Forbidden Patterns (per README specifications)
+- StrategySignal: No direct order execution, no risk bypass
+- MarketUpdate: No trading decisions, no AI model modification
+- SystemStatus: No business decisions, no security bypass

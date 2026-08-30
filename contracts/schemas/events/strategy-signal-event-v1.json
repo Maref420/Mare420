@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StrategySignalEventV1",
+  "description": "Validated trading strategy signal. Governed by contracts/events/strategy/README.md. Producer: Strategy Engine (Rust). All numeric fields use scaled integers per ADR-2026-08-30-004.",
+  "type": "object",
+  "required": ["event_id", "strategy_id", "signal_type", "symbol", "timestamp_ns", "confidence_bps", "agent_id"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "strategy_id": { "type": "string", "minLength": 1, "maxLength": 64, "description": "Unique strategy identifier" },
+    "signal_type": { "type": "string", "enum": ["entry_long", "entry_short", "exit_long", "exit_short", "adjust_position", "no_signal"] },
+    "symbol": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "side": { "type": ["string", "null"], "enum": ["buy", "sell", null], "description": "Required for entry/exit signals, null for no_signal" },
+    "quantity_scaled": { "type": ["integer", "null"], "minimum": 0, "description": "Suggested quantity in smallest asset unit" },
+    "price_scaled": { "type": ["integer", "null"], "minimum": 1, "description": "Suggested price in smallest currency unit" },
+    "stop_loss_scaled": { "type": ["integer", "null"], "minimum": 1, "description": "Stop loss price scaled" },
+    "take_profit_scaled": { "type": ["integer", "null"], "minimum": 1, "description": "Take profit price scaled" },
+    "timestamp_ns": { "type": "integer", "minimum": 1 },
+    "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000, "description": "Signal confidence in basis points: 5000 = 50.00%" },
+    "timeframe": { "type": ["string", "null"], "enum": ["1m", "5m", "15m", "1h", "4h", "1d", null] },
+    "agent_id": { "type": "string", "minLength": 1 },
+    "reasoning": { "type": ["string", "null"], "maxLength": 2048 },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    }
+  }
+}

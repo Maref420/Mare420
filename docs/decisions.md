@@ -167,3 +167,15 @@ Modified:
 - **Constraints**: All numeric fields use scaled integers/basis points. Metadata bounded. additionalProperties: false.
 - **Integrity**: Additive only. No existing schemas modified. Memory experience event unchanged.
 - **Next Steps**: Update Go Broker validation to include new event types. Add parity tests.
+
+## ADR-2026-08-30-009: P1 Event Schemas — Strategy, Market, System
+- **Date**: 2026-08-30
+- **Status**: Executed
+- **Context**: Event READMEs defined 3 additional event types (StrategySignal, MarketUpdate, SystemStatus) with no formal schemas. Contract-First approach requires schemas before implementation.
+- **Decision**: Created 3 event schemas aligned with README specifications:
+  - strategy-signal-event-v1.json: signal_type enum, confidence_bps, stop_loss/take_profit scaled
+  - market-update-event-v1.json: update_type enum (tick/orderbook/kline), superset of tick-data-v1
+  - system-status-event-v1.json: status enum, cpu/memory in basis points, ErrorEnvelope integration
+- **Constraints**: All numeric fields use scaled integers or basis points. No floats. Metadata bounded. additionalProperties: false.
+- **Integrity**: Additive only. No existing schemas modified.
+- **Next Steps**: Go Broker validation update, producer/consumer implementation
