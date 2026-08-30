@@ -9,3 +9,19 @@ dependencies:
   security:
     vulnerability_check_required: true
     license_check_required: true
+
+# Message Queue — Go Transfer Layer (Future Upgrade Path)
+- name: github.com/nats-io/nats.go
+  language: go
+  purpose: message_queue_transport
+  status: approved_future
+  approved_by: architect
+  notes: "Reserved for production scaling. Current implementation uses stdlib channels."
+
+# HTTP Client — Rust Execution Engine → Go Broker Communication
+- name: ureq
+  language: rust
+  purpose: sync_http_client
+  status: approved
+  approved_by: architect
+  notes: "Lightweight sync HTTP client. No async runtime required. For broker communication only."

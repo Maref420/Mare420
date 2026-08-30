@@ -1,0 +1,19 @@
+[package]
+name = "atlas-risk-engine"
+version = "0.1.0"
+edition = "2021"
+description = "Atlas AI Risk Engine"
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+[lints.rust]
+unsafe_code = "forbid"
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"

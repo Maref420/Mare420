@@ -134,3 +134,95 @@ class AuditLog(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+
+# ============================================================
+# Execution Order Model v1.0
+# Source: contracts/schemas/execution/order-v1.json
+# Owner: Execution Engine (Rust). Python side is READ-ONLY consumer.
+# ADR-001: This is NOT the same as agent_runtime execution (Layer 1).
+# ============================================================
+
+class OrderSide(StrEnum):
+    BUY = "buy"
+    SELL = "sell"
+
+class OrderType(StrEnum):
+    MARKET = "market"
+    LIMIT = "limit"
+    STOP_LIMIT = "stop_limit"
+    STOP_MARKET = "stop_market"
+
+class TimeInForce(StrEnum):
+    GTC = "gtc"
+    IOC = "ioc"
+    FOK = "fok"
+    GTD = "gtd"
+
+class Order(BaseModel):
+    """Trade order matching order-v1.json contract.
+    GOVERNANCE ENFORCEMENT:
+    - extra="forbid": rejects unknown fields per order-v1.json rules
+    - frozen=True: immutable after creation per immutable_after_submission
+    - price required for limit/stop_limit orders validated in model_validator
+    """
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    order_id: UUID = Field(default_factory=uuid4)
+    symbol: str = Field(min_length=1)
+    side: OrderSide
+    quantity: float = Field(gt=0)
+    order_type: OrderType
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    agent_id: str = Field(min_length=1)
+    price: Optional[float] = Field(default=None, gt=0)
+    stop_price: Optional[float] = Field(default=None, gt=0)
+    time_in_force: Optional[TimeInForce] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("symbol", "agent_id")
+    @classmethod
+    def validate_non_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("field must not be empty or whitespace-only")
+        return v
+
+# ============================================================
+# Engine Message Envelope v1.0
+# Source: governance/schemas/engine-contract-v1.json
+# Purpose: Cross-engine message format for Go Broker communication
+# ============================================================
+
+class MessageMetadata(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    specification_id: str = Field(min_length=1)
+    policy_version: str = Field(min_length=1)
+    owner: str = Field(min_length=1)
+    validation_status: str = Field(min_length=1)
+
+class EngineMessage(BaseModel):
+    """Cross-engine message envelope matching engine-contract-v1.json.
+    Used for publishing to Go Message Broker /publish endpoint.
+    """
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    contract_version: str = Field(default="1.0", pattern=r"^\d+\.\d+$")
+    message_type: str = Field(min_length=1)
+    source_engine: str = Field(min_length=1)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    payload: dict[str, Any]
+    metadata: MessageMetadata
+
+    @classmethod
+    def wrap_order(cls, order: Order, agent_id: str) -> "EngineMessage":
+        """Create an EngineMessage wrapping an Order for broker publication."""
+        return cls(
+            message_type="exec.order.v1",
+            source_engine="python_engine",
+            payload=order.model_dump(mode="json"),
+            metadata=MessageMetadata(
+                specification_id="order-v1",
+                policy_version="1.0",
+                owner="Python AI Agent",
+                validation_status="validated",
+            ),
+        )

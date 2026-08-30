@@ -114,3 +114,11 @@ Infrastructure Owns:
 
 Version:
 v0.1
+
+## Risk Engine ↔ Execution Engine Boundary
+- Contract: engine-contract-v1.json (shared envelope)
+- Risk provides: RiskAssessment, KillSwitch, CircuitBreaker
+- Execution consumes: CircuitBreaker.is_halted() as pre-admission gate
+- Direction: Risk → Execution (read-only dependency via atlas-risk-engine crate)
+- No reverse dependency: Execution MUST NOT call back into Risk internals
+- Envelope re-use: Execution re-exports atlas_risk_engine::envelope (no duplication)
