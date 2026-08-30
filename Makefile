@@ -22,6 +22,7 @@ help:
 	@echo "  make schema-validate  — Validate all JSON schemas"
 	@echo "  make secret-validate  — Validate secret registry"
 	@echo "  make governance-audit — Full governance compliance audit"
+	@echo "  make test-integration — Run integration tests (requires live broker)"
 
 # ─── Rust Gates ───
 rust-check:
@@ -100,6 +101,18 @@ governance-audit:
 	@echo "--- Registered dependencies ---"
 	@grep -c "name:" governance/registry/dependencies.yaml 2>/dev/null || echo "0"
 	@echo "✅ Governance audit complete"
+# ─── Integration Tests (require live services) ───
+test-integration:
+	@echo "🔗 [Integration] Running tests that require live services..."
+	@echo "  Prerequisites:"
+	@echo "    - Go Message Broker running on localhost:8090"
+	@echo "    - Start broker: cd services/message_broker && go run main.go"
+	@echo ""
+	@echo "  Running Rust integration tests..."
+	@cd core_engine/execution && cargo test --test prod_memory_pipeline -- --ignored --nocapture 2>&1 | tail -10
+	@echo ""
+	@echo "✅  Integration tests complete"
+
 
 # ─── CI Gate (All Checks) ───
 ci-gate: rust-check rust-test rust-clippy go-check go-test python-test schema-validate secret-validate governance-audit
