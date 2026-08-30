@@ -15,3 +15,15 @@ ownership:
   policy_ref: governance/policies/rust-policy.yaml
   last_updated: "2026-08-30"
   change_reason: "P0 Market Data Contract approval per ADR-2026-08-30-001"
+
+# --- Added 2026-08-30: Strategy Engine Module Ownership ---
+- module: strategy_engine
+  owner: core_engine_team
+  language: rust
+  path: core_engine/strategy/
+  contracts:
+    - strategy-signal-event-v1
+  policy_ref: governance/policies/rust-policy.yaml
+  status: skeleton_created
+  last_updated: "2026-08-30"
+  change_reason: "P1 Strategy Event Activation per ADR-2026-08-30-010"
