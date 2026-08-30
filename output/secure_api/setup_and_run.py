@@ -1,3 +1,4 @@
+import os
 import json
 import urllib.error
 import urllib.parse
@@ -5,7 +6,8 @@ import urllib.request
 
 BASE_URL = "http://127.0.0.1:8000"
 USERNAME = "admin"
-PASSWORD = "test_password"
+PASSWORD = os.environ.get("SETUP_TEST_PASSWORD", "CHANGE_ME_IMMEDIATELY")
+# WARNING: Was hardcoded "test_password". Rotated 2026-08-30. Set SETUP_TEST_PASSWORD env var.
 
 
 def request(method, url, data=None, headers=None):
