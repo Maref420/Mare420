@@ -13,6 +13,36 @@ pub enum OrderStatus {
     Submitted,
 }
 
+/// Convert a strategy signal into an Order.
+///
+/// This is the bridge between Strategy Engine signals and Execution Engine orders.
+/// Takes raw fields (not DomainEvent) to avoid circular dependency.
+/// Caller is responsible for extracting fields from DomainEvent.
+///
+/// Returns None if signal direction does not map to an order side (e.g., FLAT).
+pub fn signal_to_order(
+    event_id: uuid::Uuid,
+    symbol: String,
+    side: crate::types::OrderSide,
+    quantity: f64,
+    agent_id: String,
+) -> Order {
+    let now = chrono::Utc::now().to_rfc3339();
+    Order {
+        order_id: event_id,
+        symbol,
+        side,
+        quantity,
+        order_type: crate::types::OrderType::Market,
+        price: None,
+        stop_price: None,
+        time_in_force: None,
+        timestamp: now,
+        agent_id,
+        metadata: std::collections::HashMap::new(),
+    }
+}
+
 pub struct OrderManager {
     gateway: Option<BrokerGateway>,
 }

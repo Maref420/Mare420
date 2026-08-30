@@ -123,3 +123,48 @@ fn mock_connector_cancel_works() {
     let connector = MockConnector::new(true);
     assert!(connector.cancel_order("MOCK-123").is_ok());
 }
+
+
+#[test]
+fn test_signal_to_order_creates_valid_market_order() {
+    use atlas_execution_engine::order_manager::signal_to_order;
+    use atlas_execution_engine::types::OrderSide;
+    use uuid::Uuid;
+
+    let event_id = Uuid::new_v4();
+    let order = signal_to_order(
+        event_id,
+        "BTCUSDT".to_string(),
+        OrderSide::Buy,
+        1.5,
+        "strategy_agent".to_string(),
+    );
+
+    assert_eq!(order.order_id, event_id);
+    assert_eq!(order.symbol, "BTCUSDT");
+    assert_eq!(order.side, OrderSide::Buy);
+    assert_eq!(order.quantity, 1.5);
+    assert_eq!(order.agent_id, "strategy_agent");
+    assert_eq!(order.order_type, atlas_execution_engine::types::OrderType::Market);
+    assert!(order.price.is_none());
+    // Must pass validation
+    assert!(order.validate().is_ok());
+}
+
+#[test]
+fn test_signal_to_order_preserves_event_id_for_traceability() {
+    use atlas_execution_engine::order_manager::signal_to_order;
+    use atlas_execution_engine::types::OrderSide;
+    use uuid::Uuid;
+
+    let original_event_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
+    let order = signal_to_order(
+        original_event_id,
+        "ETHUSDT".to_string(),
+        OrderSide::Sell,
+        10.0,
+        "momentum_v3".to_string(),
+    );
+
+    assert_eq!(order.order_id, original_event_id);
+}
