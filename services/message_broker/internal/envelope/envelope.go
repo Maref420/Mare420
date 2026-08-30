@@ -98,7 +98,14 @@ func Validate(data []byte) (*EngineMessage, error) {
 			return nil, fmt.Errorf("memory payload validation: %w", err)
 		}
 	}
-	return &msg, nil
+		// Payload-specific validation for strategy signal events.
+	if msg.MessageType == "strategy.signal.v1" {
+		if err := validateStrategySignalPayload(msg.Payload); err != nil {
+			return nil, fmt.Errorf("strategy signal payload validation: %w", err)
+		}
+	}
+
+return &msg, nil
 }
 
 // validateMemoryPayload validates the payload of a memory.experience.v1 message
@@ -187,6 +194,82 @@ func validateAgentDecision(raw json.RawMessage) error {
 	}
 	if p.Confidence < 0 || p.Confidence > 1 {
 		return fmt.Errorf("agent_decision: confidence must be 0-1, got %f", p.Confidence)
+	}
+	return nil
+}
+
+// strategySignalPayload mirrors contracts/schemas/strategy/strategy-signal-event-v1.schema.json.
+type strategySignalPayload struct {
+	Version     string             `json:"version"`
+	EventID     string             `json:"event_id"`
+	TimestampUTC string            `json:"timestamp_utc"`
+	TraceID     *string            `json:"trace_id,omitempty"`
+	SourceAgent string             `json:"source_agent"`
+	Signal      strategySignalData `json:"signal"`
+	Metadata    map[string]string  `json:"metadata,omitempty"`
+}
+
+type strategySignalData struct {
+	Symbol     string                 `json:"symbol"`
+	Direction  string                 `json:"direction"`
+	Confidence float64                `json:"confidence"`
+	Regime     string                 `json:"regime"`
+	Parameters map[string]interface{} `json:"parameters,omitempty"`
+}
+
+var validDirections = map[string]bool{
+	"LONG": true, "SHORT": true, "FLAT": true,
+}
+
+var validRegimes = map[string]bool{
+	"TRENDING": true, "RANGING": true, "VOLATILE": true, "CALM": true,
+}
+
+// symbolPattern matches ^[A-Z0-9]{2,20}$
+func isValidSymbol(s string) bool {
+	if len(s) < 2 || len(s) > 20 {
+		return false
+	}
+	for _, c := range s {
+		if !((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+			return false
+		}
+	}
+	return true
+}
+
+// validateStrategySignalPayload validates the payload of a strategy.signal.v1 message
+// per contracts/schemas/strategy/strategy-signal-event-v1.schema.json.
+func validateStrategySignalPayload(raw json.RawMessage) error {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.DisallowUnknownFields()
+	var p strategySignalPayload
+	if err := dec.Decode(&p); err != nil {
+		return fmt.Errorf("strategy signal decode: %w", err)
+	}
+	if p.Version != "1.0.0" {
+		return fmt.Errorf("strategy signal: version must be 1.0.0, got %q", p.Version)
+	}
+	if p.EventID == "" {
+		return fmt.Errorf("strategy signal: event_id is required")
+	}
+	if p.TimestampUTC == "" {
+		return fmt.Errorf("strategy signal: timestamp_utc is required")
+	}
+	if p.SourceAgent == "" {
+		return fmt.Errorf("strategy signal: source_agent is required")
+	}
+	if !isValidSymbol(p.Signal.Symbol) {
+		return fmt.Errorf("strategy signal: symbol %q does not match ^[A-Z0-9]{2,20}$", p.Signal.Symbol)
+	}
+	if !validDirections[p.Signal.Direction] {
+		return fmt.Errorf("strategy signal: direction must be LONG/SHORT/FLAT, got %q", p.Signal.Direction)
+	}
+	if p.Signal.Confidence < 0 || p.Signal.Confidence > 1 {
+		return fmt.Errorf("strategy signal: confidence must be 0-1, got %f", p.Signal.Confidence)
+	}
+	if !validRegimes[p.Signal.Regime] {
+		return fmt.Errorf("strategy signal: regime must be TRENDING/RANGING/VOLATILE/CALM, got %q", p.Signal.Regime)
 	}
 	return nil
 }
