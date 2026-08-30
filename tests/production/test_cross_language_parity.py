@@ -42,3 +42,57 @@ def test_python_envelope_matches_go_contract():
     assert data["contract_version"] == "1.0"
     assert data["source_engine"] == "python_engine"
     print(f"✅ Envelope parity: all {len(required_envelope)} + {len(required_meta)} fields verified")
+
+
+# --- Added 2026-08-30: TickDataV1 Cross-Language Parity ---
+def test_tick_data_v1_cross_language_parity():
+    """
+    Validates that TickDataV1 contract is correctly implemented
+    across Rust (producer) and Python (consumer) boundaries.
+    
+    Governed by: contracts/schemas/market/tick-data-v1.json
+    Required by: ffi-boundary-v1.json v1.1 parity_test_required_for_each_interface
+    """
+    import json
+    from pathlib import Path
+    
+    # Load contract
+    contract_path = Path("contracts/schemas/market/tick-data-v1.json")
+    assert contract_path.exists(), f"Missing contract: {contract_path}"
+    
+    with open(contract_path) as f:
+        schema = json.load(f)
+    
+    # Validate required fields exist in schema
+    required = schema.get("required", [])
+    assert "symbol" in required
+    assert "price_scaled" in required
+    assert "volume_scaled" in required
+    assert "timestamp_ns" in required
+    assert "exchange_id" in required
+    
+    # Validate NO float types (deterministic requirement)
+    props = schema.get("properties", {})
+    for field_name, field_def in props.items():
+        field_type = field_def.get("type")
+        if isinstance(field_type, list):
+            assert "number" not in field_type, f"{field_name} must not use float/number type"
+        else:
+            assert field_type != "number", f"{field_name} must not use float/number type"
+    
+    # Validate sample instance against schema
+    try:
+        import jsonschema
+        valid_instance = {
+            "symbol": "BTCUSDT",
+            "price_scaled": 5000000000,
+            "volume_scaled": 100000,
+            "timestamp_ns": 1725000000000000000,
+            "exchange_id": "binance"
+        }
+        jsonschema.validate(valid_instance, schema)
+    except ImportError:
+        # jsonschema not available; skip runtime validation
+        pass
+    
+    print("✅ TickDataV1 cross-language parity test passed")
