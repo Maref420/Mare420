@@ -139,3 +139,164 @@ func TestNonMemoryMessageNotAffected(t *testing.T) {
 		t.Fatalf("non-memory message should not be affected: %v", err)
 	}
 }
+
+// === Strategy Signal Payload Validation Tests ===
+
+func TestValidateStrategySignalValid(t *testing.T) {
+	env := "{" +
+		`"contract_version":"1.0",` +
+		`"message_type":"strategy.signal.v1",` +
+		`"source_engine":"python_engine",` +
+		`"timestamp":"2026-08-31T10:00:00Z",` +
+		`"payload":{` +
+		`"version":"1.0.0",` +
+		`"event_id":"550e8400-e29b-41d4-a716-446655440000",` +
+		`"timestamp_utc":"2026-08-31T10:00:00Z",` +
+		`"source_agent":"test_agent",` +
+		`"signal":{` +
+		`"symbol":"BTCUSDT",` +
+		`"direction":"LONG",` +
+		`"confidence":0.87,` +
+		`"regime":"TRENDING"` +
+		`}` +
+		`},` +
+		`"metadata":{` +
+		`"specification_id":"strategy-signal-event-v1",` +
+		`"policy_version":"1.0",` +
+		`"owner":"core_engine_team",` +
+		`"validation_status":"validated"` +
+		`}` +
+		"}"
+	msg, err := Validate([]byte(env))
+	if err != nil {
+		t.Fatalf("expected valid strategy signal, got error: %v", err)
+	}
+	if msg.MessageType != "strategy.signal.v1" {
+		t.Errorf("expected message_type strategy.signal.v1, got %s", msg.MessageType)
+	}
+}
+
+func TestValidateStrategySignalInvalidSymbol(t *testing.T) {
+	env := "{" +
+		`"contract_version":"1.0",` +
+		`"message_type":"strategy.signal.v1",` +
+		`"source_engine":"python_engine",` +
+		`"timestamp":"2026-08-31T10:00:00Z",` +
+		`"payload":{` +
+		`"version":"1.0.0",` +
+		`"event_id":"550e8400-e29b-41d4-a716-446655440000",` +
+		`"timestamp_utc":"2026-08-31T10:00:00Z",` +
+		`"source_agent":"test_agent",` +
+		`"signal":{` +
+		`"symbol":"x",` +
+		`"direction":"LONG",` +
+		`"confidence":0.5,` +
+		`"regime":"TRENDING"` +
+		`}` +
+		`},` +
+		`"metadata":{` +
+		`"specification_id":"strategy-signal-event-v1",` +
+		`"policy_version":"1.0",` +
+		`"owner":"core_engine_team",` +
+		`"validation_status":"validated"` +
+		`}` +
+		"}"
+	_, err := Validate([]byte(env))
+	if err == nil {
+		t.Fatal("expected error for invalid symbol, got nil")
+	}
+}
+
+func TestValidateStrategySignalInvalidDirection(t *testing.T) {
+	env := "{" +
+		`"contract_version":"1.0",` +
+		`"message_type":"strategy.signal.v1",` +
+		`"source_engine":"python_engine",` +
+		`"timestamp":"2026-08-31T10:00:00Z",` +
+		`"payload":{` +
+		`"version":"1.0.0",` +
+		`"event_id":"550e8400-e29b-41d4-a716-446655440000",` +
+		`"timestamp_utc":"2026-08-31T10:00:00Z",` +
+		`"source_agent":"test_agent",` +
+		`"signal":{` +
+		`"symbol":"BTCUSDT",` +
+		`"direction":"INVALID",` +
+		`"confidence":0.5,` +
+		`"regime":"TRENDING"` +
+		`}` +
+		`},` +
+		`"metadata":{` +
+		`"specification_id":"strategy-signal-event-v1",` +
+		`"policy_version":"1.0",` +
+		`"owner":"core_engine_team",` +
+		`"validation_status":"validated"` +
+		`}` +
+		"}"
+	_, err := Validate([]byte(env))
+	if err == nil {
+		t.Fatal("expected error for invalid direction, got nil")
+	}
+}
+
+func TestValidateStrategySignalConfidenceOutOfRange(t *testing.T) {
+	env := "{" +
+		`"contract_version":"1.0",` +
+		`"message_type":"strategy.signal.v1",` +
+		`"source_engine":"python_engine",` +
+		`"timestamp":"2026-08-31T10:00:00Z",` +
+		`"payload":{` +
+		`"version":"1.0.0",` +
+		`"event_id":"550e8400-e29b-41d4-a716-446655440000",` +
+		`"timestamp_utc":"2026-08-31T10:00:00Z",` +
+		`"source_agent":"test_agent",` +
+		`"signal":{` +
+		`"symbol":"BTCUSDT",` +
+		`"direction":"LONG",` +
+		`"confidence":1.5,` +
+		`"regime":"TRENDING"` +
+		`}` +
+		`},` +
+		`"metadata":{` +
+		`"specification_id":"strategy-signal-event-v1",` +
+		`"policy_version":"1.0",` +
+		`"owner":"core_engine_team",` +
+		`"validation_status":"validated"` +
+		`}` +
+		"}"
+	_, err := Validate([]byte(env))
+	if err == nil {
+		t.Fatal("expected error for confidence out of range, got nil")
+	}
+}
+
+func TestValidateStrategySignalUnknownField(t *testing.T) {
+	env := "{" +
+		`"contract_version":"1.0",` +
+		`"message_type":"strategy.signal.v1",` +
+		`"source_engine":"python_engine",` +
+		`"timestamp":"2026-08-31T10:00:00Z",` +
+		`"payload":{` +
+		`"version":"1.0.0",` +
+		`"event_id":"550e8400-e29b-41d4-a716-446655440000",` +
+		`"timestamp_utc":"2026-08-31T10:00:00Z",` +
+		`"source_agent":"test_agent",` +
+		`"signal":{` +
+		`"symbol":"BTCUSDT",` +
+		`"direction":"LONG",` +
+		`"confidence":0.5,` +
+		`"regime":"TRENDING"` +
+		`},` +
+		`"unexpected_field":true` +
+		`},` +
+		`"metadata":{` +
+		`"specification_id":"strategy-signal-event-v1",` +
+		`"policy_version":"1.0",` +
+		`"owner":"core_engine_team",` +
+		`"validation_status":"validated"` +
+		`}` +
+		"}"
+	_, err := Validate([]byte(env))
+	if err == nil {
+		t.Fatal("expected error for unknown field, got nil")
+	}
+}
