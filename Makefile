@@ -77,19 +77,7 @@ python-test:
 # ─── Schema Validation ───
 schema-validate:
 	@echo "📋 [Schema] Validating all JSON schemas..."
-	@python3 -c "\
-	import json, sys; \
-	from pathlib import Path; \
-	errors = []; \
-	for f in sorted(Path('contracts/schemas').rglob('*.json')): \
-	    if '.bak' in str(f): continue; \
-	    try: json.loads(f.read_text()); \
-	    except Exception as e: errors.append(f'{f}: {e}'); \
-	if errors: \
-	    print('❌ Schema validation failed:'); \
-	    [print(f'  {e}') for e in errors]; \
-	    sys.exit(1); \
-	print(f'✅ All {len(list(Path(\"contracts/schemas\").rglob(\"*.json\")))} schemas valid')"
+	@python3 scripts/validate_schemas.py
 
 # ─── Secret Validation ───
 secret-validate:
