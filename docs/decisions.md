@@ -191,3 +191,16 @@ Modified:
 - **Access Control**: Each event type has explicit producer/consumer module list in configs/event-access-policy.yaml
 - **Integrity**: Additive only. Go Broker backup preserved. No existing schemas modified.
 - **Next Steps**: Implement MarketUpdate emitter in market_data engine, implement StrategySignal emitter in strategy engine, add consumer subscribers
+
+## ADR-2026-08-30-011: Secret Provider Abstraction Layer
+- **Date**: 2026-08-30
+- **Status**: Executed
+- **Context**: Secrets stored as plaintext in configs/secure_api.env. No centralized management. No rotation policy. Direct dotenv usage scattered across codebase.
+- **Decision**: Created provider-agnostic secret abstraction:
+  1. Contract: contracts/schemas/infrastructure/secret-provider-config-v1.json
+  2. Registry: configs/secret-registry.yaml (5 secrets registered with consumers, rotation, min_length)
+  3. Python Provider: intelligence/shared/secrets/provider.py (env backend, upgradeable to Vault/AWS/GCP)
+  4. Validation: start.sh validates all required secrets before startup
+- **Constraints**: Current backend = env vars (backward compatible). No code changes needed for future Vault migration.
+- **Integrity**: Additive only. Original start.sh backed up. No existing auth logic modified.
+- **Next Steps**: Rotate JWT_SECRET_KEY, implement Vault backend when infrastructure ready
