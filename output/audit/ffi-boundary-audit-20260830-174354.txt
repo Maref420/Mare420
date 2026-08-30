@@ -1,0 +1,18 @@
+# FFI Boundary Audit Report
+# Generated: 2026-08-30T17:43:54+03:00
+# Contract: contracts/schemas/sdk/ffi-boundary-v1.json
+
+## Rust Exports Found
+NONE FOUND
+
+## Python Imports Found
+NONE FOUND
+
+## Parity Test Status
+tests/production/test_cross_language_parity.py
+EXISTS
+
+## Action Required
+- If Rust exports ≠ Python imports → Update ffi-boundary-v1.json
+- If parity test MISSING → Create before production deployment
+- All FFI functions must have boundary_tests per rust-policy.yaml
