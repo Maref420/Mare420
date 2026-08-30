@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentDecisionEventV1",
+  "description": "Event emitted when an AI agent makes a trading decision. Deterministic types only.",
+  "type": "object",
+  "required": ["event_id", "agent_id", "decision_type", "symbol", "timestamp_ns", "confidence_bps"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "agent_id": { "type": "string", "minLength": 1 },
+    "decision_type": { "type": "string", "enum": ["open_position", "close_position", "adjust_size", "no_action"] },
+    "symbol": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "side": { "type": ["string", "null"], "enum": ["buy", "sell", null] },
+    "quantity_scaled": { "type": ["integer", "null"], "minimum": 0 },
+    "price_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "timestamp_ns": { "type": "integer", "minimum": 1 },
+    "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "reasoning": { "type": ["string", "null"], "maxLength": 1024 },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    }
+  }
+}

@@ -155,3 +155,15 @@ Modified:
   - 5 unit tests, clippy clean
 - **Integrity**: Additive only. No existing files modified.
 - **Contracts**: risk-assessment-v1.1, circuit-breaker-v1.1
+
+## ADR-2026-08-30-008: Events Formalization — P0 Schemas Created
+- **Date**: 2026-08-30
+- **Status**: Executed
+- **Context**: Python MemoryEventSubscriber referenced 3 event types (execution_outcome, risk_assessment, agent_decision) with no formal schemas. Go Broker only validated memory events. Remaining events were ungoverned.
+- **Decision**: Created 3 event schemas:
+  - execution-outcome-event-v1.json (aligned with order-v1.1)
+  - risk-assessment-event-v1.json (aligned with risk-assessment-v1.1)
+  - agent-decision-event-v1.json (new, confidence in basis points)
+- **Constraints**: All numeric fields use scaled integers/basis points. Metadata bounded. additionalProperties: false.
+- **Integrity**: Additive only. No existing schemas modified. Memory experience event unchanged.
+- **Next Steps**: Update Go Broker validation to include new event types. Add parity tests.
