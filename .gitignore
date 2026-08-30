@@ -35,3 +35,6 @@ output/*/__pycache__/
 *.rmeta
 output/*/go_server
 output/*/*.exe
+
+# Backup files (never commit)
+*.bak.*
