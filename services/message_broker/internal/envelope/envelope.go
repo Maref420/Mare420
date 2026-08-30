@@ -163,8 +163,8 @@ func validateRiskAssessment(raw json.RawMessage) error {
 	if p.CircuitBreakerState != "normal" && p.CircuitBreakerState != "tripped" && p.CircuitBreakerState != "cooldown" {
 		return fmt.Errorf("risk_assessment: invalid circuit_breaker_state %q", p.CircuitBreakerState)
 	}
-	if p.RiskScore < 0 || p.RiskScore > 100 {
-		return fmt.Errorf("risk_assessment: risk_score must be 0-100, got %f", p.RiskScore)
+	if p.RiskScore < 0 || p.RiskScore > 10000 {
+		return fmt.Errorf("risk_assessment: risk_score must be 0-10000 (basis points), got %f", p.RiskScore)
 	}
 	return nil
 }
