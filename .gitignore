@@ -38,3 +38,4 @@ output/*/*.exe
 
 # Backup files (never commit)
 *.bak.*
+.cursorrules
