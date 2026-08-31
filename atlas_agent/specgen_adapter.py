@@ -183,7 +183,7 @@ def generate_scaffold(
         # Clean up temp metadata file
         try:
             os.unlink(metadata_path)
-        except OSError:
+        except OSError:  # acceptable: temp file may already be removed
             pass
 
 
