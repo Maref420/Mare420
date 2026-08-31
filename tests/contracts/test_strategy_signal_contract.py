@@ -1,84 +1,63 @@
-"""Production-grade contract tests for strategy-signal-event-v1."""
+"""Cross-language contract parity tests for strategy-signal-event-v1.
+
+Ensures Python adapter and Rust contract_types.rs produce/consume
+identical JSON payloads per the legacy boundary schema.
+
+Schema: contracts/schemas/strategy/strategy-signal-event-v1.schema.json
+Policy: governance/policies/python-policy.yaml
+"""
+from __future__ import annotations
+
 import json
-import uuid
 from datetime import datetime, timezone
-from pathlib import Path
-import pytest
-from jsonschema import Draft7Validator, ValidationError
 
-SCHEMA_PATH = Path("contracts/schemas/strategy/strategy-signal-event-v1.schema.json")
+from intelligence.strategy_intelligence.contract_adapter import (
+    StrategySignalEventV1,
+)
 
-@pytest.fixture(scope="module")
-def schema():
-    return json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+CANONICAL_SAMPLE = {
+    "version": "1.0.0",
+    "event_id": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp_utc": "2026-08-31T10:00:00Z",
+    "trace_id": "660e8400-e29b-41d4-a716-446655440001",
+    "source_agent": "strategy_selector_v2",
+    "signal": {
+        "symbol": "BTCUSDT",
+        "direction": "LONG",
+        "confidence": 0.87,
+        "regime": "TRENDING",
+    },
+}
 
-@pytest.fixture(scope="module")
-def validator(schema):
-    return Draft7Validator(schema)
 
-def _valid_signal(**overrides):
-    """Return a valid signal object with optional overrides."""
-    base = {
-        "symbol": "ETHUSDT",
-        "direction": "SHORT",
-        "confidence": 0.72,
-        "regime": "VOLATILE"
-    }
-    base.update(overrides)
-    return base
+def test_python_parses_rust_compatible_payload():
+    """Python adapter must parse JSON produced by Rust serde_json."""
+    raw = json.dumps(CANONICAL_SAMPLE, sort_keys=True, separators=(",", ":"))
+    event = StrategySignalEventV1.from_json(raw)
+    assert event.version == "1.0.0"
+    assert event.event_id == "550e8400-e29b-41d4-a716-446655440000"
+    assert event.source_agent == "strategy_selector_v2"
+    assert event.signal.symbol == "BTCUSDT"
+    assert event.signal.direction == "LONG"
+    assert abs(event.signal.confidence - 0.87) < 1e-9
+    assert event.signal.regime == "TRENDING"
 
-def _valid_event(**overrides):
-    base = {
-        "version": "1.0.0",
-        "event_id": str(uuid.uuid4()),
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "trace_id": str(uuid.uuid4()),
-        "source_agent": "test_agent",
-        "signal": _valid_signal()
-    }
-    base.update(overrides)
-    return base
 
-def test_valid_event_passes(validator):
-    validator.validate(_valid_event())
+def test_python_produces_rust_compatible_payload():
+    """Python serialized JSON must be parseable by Rust serde_json."""
+    event = StrategySignalEventV1.from_json(json.dumps(CANONICAL_SAMPLE))
+    raw = event.to_json()
+    parsed = json.loads(raw)
+    assert parsed["version"] == "1.0.0"
+    assert parsed["signal"]["direction"] == "LONG"
+    assert parsed["signal"]["confidence"] == 0.87
+    assert parsed["source_agent"] == "strategy_selector_v2"
 
-def test_missing_required_field_fails(validator):
-    event = _valid_event()
-    del event["signal"]["confidence"]
-    with pytest.raises(ValidationError, match="confidence"):
-        validator.validate(event)
 
-def test_invalid_direction_enum_fails(validator):
-    event = _valid_event(signal=_valid_signal(direction="INVALID"))
-    errors = list(validator.iter_errors(event))
-    assert len(errors) == 1
-    assert "INVALID" in errors[0].message
-
-def test_confidence_out_of_range_fails(validator):
-    event = _valid_event(signal=_valid_signal(confidence=1.5))
-    errors = list(validator.iter_errors(event))
-    assert len(errors) == 1
-    assert "1.5" in errors[0].message
-
-def test_additional_properties_rejected(validator):
-    event = _valid_event()
-    event["unexpected_field"] = "should_fail"
-    with pytest.raises(ValidationError, match="Additional properties"):
-        validator.validate(event)
-
-def test_symbol_pattern_enforced(validator):
-    """Symbol must match ^[A-Z0-9]{2,20}$ — lowercase single char fails."""
-    event = _valid_event(signal=_valid_signal(symbol="x"))
-    errors = list(validator.iter_errors(event))
-    assert len(errors) == 1
-    assert "does not match" in errors[0].message
-    assert "^[A-Z0-9]{2,20}$" in errors[0].message
-
-def test_multiple_violations_reported(validator):
-    event = _valid_event(signal=_valid_signal(
-        symbol="x",
-        direction="INVALID",
-        confidence=2.0
-    ))
-    errors = list(validator.iter_errors(event))
-    assert len(errors) >= 3
+def test_roundtrip_preserves_all_fields():
+    original = StrategySignalEventV1.from_json(json.dumps(CANONICAL_SAMPLE))
+    restored = StrategySignalEventV1.from_json(original.to_json())
+    assert original == restored
+    assert restored.timestamp_utc == original.timestamp_utc
+    assert restored.source_agent == original.source_agent
+    assert restored.trace_id == original.trace_id

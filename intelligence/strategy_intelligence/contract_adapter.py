@@ -5,9 +5,12 @@ Schema: contracts/schemas/strategy/strategy-signal-event-v1.schema.json
 Policy: governance/policies/python-policy.yaml
 
 This module is the Python-side counterpart of Rust's contract_types.rs.
-Both enforce identical validation rules against the same JSON Schema.
-"""
+Both enforce identical validation rules against the SAME legacy boundary schema.
 
+NOTE: The contract boundary uses nested signal + float confidence intentionally.
+Conversion to scaled integers happens in Rust conversions.rs and Python
+domain adapters — NOT at the contract boundary.
+"""
 from __future__ import annotations
 
 import json
@@ -30,7 +33,7 @@ class ContractValidationError(ValueError):
 
 @dataclass(frozen=True)
 class Signal:
-    """Inner signal payload matching schema's signal object."""
+    """Inner signal payload matching Rust contract_types::Signal."""
 
     symbol: str
     direction: str
@@ -59,11 +62,7 @@ class Signal:
 
 @dataclass(frozen=True)
 class StrategySignalEventV1:
-    """Top-level event envelope matching strategy-signal-event-v1 schema.
-
-    Frozen to enforce immutability after construction.
-    Use from_json() for deserialization with validation.
-    """
+    """Top-level event envelope matching Rust contract_types::StrategySignalEventV1."""
 
     version: str
     event_id: str
@@ -74,14 +73,12 @@ class StrategySignalEventV1:
     metadata: dict[str, str] = field(default_factory=dict)
 
     def validate(self) -> None:
-        """Validate all contract-boundary constraints."""
         if self.version != _REQUIRED_VERSION:
             raise ContractValidationError(
                 f"version must be '{_REQUIRED_VERSION}', got '{self.version}'"
             )
         if not self.source_agent:
             raise ContractValidationError("source_agent must not be empty")
-        # Validate UUID format
         try:
             uuid.UUID(self.event_id)
         except ValueError as exc:
@@ -98,17 +95,10 @@ class StrategySignalEventV1:
         self.signal.validate()
 
     def to_json(self) -> str:
-        """Serialize to canonical JSON string. Validates before serialization.
-
-        Canonical format: sorted keys, compact, deterministic.
-        Matches Rust serde_json output for cross-language parity.
-        """
         self.validate()
         data = asdict(self)
-        # Remove None values for optional fields (absent from input)
         if data.get("trace_id") is None:
             del data["trace_id"]
-        # Remove empty parameters/metadata dicts for canonical form
         if not data.get("signal", {}).get("parameters"):
             data.get("signal", {}).pop("parameters", None)
         if not data.get("metadata"):
@@ -117,40 +107,28 @@ class StrategySignalEventV1:
 
     @classmethod
     def from_json(cls, raw: str) -> StrategySignalEventV1:
-        """Deserialize from JSON string with full validation."""
         try:
             data = json.loads(raw)
         except json.JSONDecodeError as exc:
             raise ContractValidationError(f"invalid JSON: {exc}") from exc
-
         if not isinstance(data, dict):
             raise ContractValidationError("expected JSON object")
-
-        # Check for unknown top-level fields
         known_fields = {
             "version", "event_id", "timestamp_utc", "trace_id",
             "source_agent", "signal", "metadata",
         }
         unknown = set(data.keys()) - known_fields
         if unknown:
-            raise ContractValidationError(
-                f"unknown fields: {unknown}"
-            )
-
-        # Parse signal
+            raise ContractValidationError(f"unknown fields: {unknown}")
         signal_data = data.get("signal")
         if not isinstance(signal_data, dict):
             raise ContractValidationError("signal must be an object")
-
         known_signal_fields = {
             "symbol", "direction", "confidence", "regime", "parameters",
         }
         unknown_signal = set(signal_data.keys()) - known_signal_fields
         if unknown_signal:
-            raise ContractValidationError(
-                f"unknown signal fields: {unknown_signal}"
-            )
-
+            raise ContractValidationError(f"unknown signal fields: {unknown_signal}")
         signal = Signal(
             symbol=signal_data.get("symbol", ""),
             direction=signal_data.get("direction", ""),
@@ -158,7 +136,6 @@ class StrategySignalEventV1:
             regime=signal_data.get("regime", ""),
             parameters=signal_data.get("parameters", {}),
         )
-
         event = cls(
             version=data.get("version", ""),
             event_id=data.get("event_id", ""),
@@ -168,7 +145,6 @@ class StrategySignalEventV1:
             trace_id=data.get("trace_id"),
             metadata=data.get("metadata", {}),
         )
-
         event.validate()
         return event
 
@@ -183,19 +159,14 @@ class StrategySignalEventV1:
         parameters: dict[str, Any] | None = None,
         metadata: dict[str, str] | None = None,
     ) -> StrategySignalEventV1:
-        """Factory method with auto-generated event_id and timestamp."""
         event = cls(
             version=_REQUIRED_VERSION,
             event_id=str(uuid.uuid4()),
-            timestamp_utc=datetime.now(timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%SZ"
-            ),
+            timestamp_utc=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             source_agent=source_agent,
             signal=Signal(
-                symbol=symbol,
-                direction=direction,
-                confidence=confidence,
-                regime=regime,
+                symbol=symbol, direction=direction,
+                confidence=confidence, regime=regime,
                 parameters=parameters or {},
             ),
             metadata=metadata or {},

@@ -1,4 +1,8 @@
-"""Validate strategy-signal-event-v1 schema against draft-07 meta-schema."""
+"""Validate strategy-signal-event-v1 legacy boundary schema against draft-07.
+
+Schema: contracts/schemas/strategy/strategy-signal-event-v1.schema.json
+Policy: governance/policies/python-policy.yaml
+"""
 import json
 from pathlib import Path
 from jsonschema import Draft7Validator
@@ -19,14 +23,14 @@ def validate() -> None:
             "symbol": "BTCUSDT",
             "direction": "LONG",
             "confidence": 0.87,
-            "regime": "TRENDING"
-        }
+            "regime": "TRENDING",
+        },
     }
     validator = Draft7Validator(schema)
     errors = list(validator.iter_errors(sample))
     if errors:
         raise AssertionError(f"Sample validation failed: {errors}")
-    print("✅ strategy-signal-event-v1 schema is valid and sample passes.")
+    print("✅  strategy-signal-event-v1 boundary schema is valid and sample passes.")
 
 if __name__ == "__main__":
     validate()
