@@ -1,0 +1,72 @@
+# =============================================================================
+# IPC Binary Protocol v1 Specification
+# Single Source of Truth for Go <-> Rust market data frame transfer
+# ADR Reference: docs/decisions/006-websocket-ingestion-architecture.md
+# Governance: This file is IMMUTABLE without a new ADR and version bump
+# =============================================================================
+
+protocol:
+  name: atlas-market-data-ipc
+  version: "1"
+  transport: unix_domain_socket
+  endianness: big_endian
+
+frame_format:
+  description: |
+    Each frame consists of a fixed 4-byte length header followed by the raw payload.
+    No additional metadata, headers, or trailers are included in the binary stream.
+    Sequence numbering and timestamps are embedded WITHIN the payload by the Go sender,
+    NOT in the IPC framing layer.
+
+  layout:
+    - field: length
+      offset: 0
+      size_bytes: 4
+      type: uint32
+      encoding: big_endian
+      description: Length of payload in bytes (excludes this 4-byte header)
+      constraints:
+        min: 1
+        max: 16777216  # 16 MB max frame size
+
+    - field: payload
+      offset: 4
+      size_bytes: dynamic
+      type: bytes
+      description: Raw WebSocket frame content (unchanged from source)
+      constraints:
+        must_match_length_header: true
+
+backpressure:
+  buffer_capacity_frames: 1000
+  overflow_policy: drop_oldest
+  metrics_on_overflow:
+    - ws_frames_dropped_total{reason="backpressure"}
+    - ws_ipc_backpressure (gauge, current buffer depth)
+  silent_drop: FORBIDDEN
+
+error_handling:
+  partial_write: retry_with_backoff_then_drop_oldest
+  socket_closed: emit_error_event_and_reconnect
+  invalid_frame_length: log_raw_bytes_hex_and_close_connection
+  zero_length_payload: REJECTED (min length = 1)
+  oversized_payload: REJECTED (max 16MB, log and drop)
+  silent_failure: FORBIDDEN_IN_ALL_CASES
+
+testing_requirements:
+  go_side:
+    test_file: services/ingestion/internal/ipc/contract_test.go
+    must_validate_against: this_spec
+  rust_side:
+    test_file: core_engine/market_data/tests/ipc_contract_test.rs
+    must_validate_against: this_spec
+  cross_validation:
+    - go_serialize_rust_deserialize: REQUIRED
+    - rust_serialize_go_deserialize: REQUIRED
+    - boundary_values: [1_byte, max_size, exactly_1000_frames]
+    - malformed_input: [zero_length, oversized, truncated_header]
+
+versioning_policy:
+  breaking_change_requires: new_major_version + new_ADR
+  additive_change_requires: minor_version_bump + ADR_amendment
+  current_status: v1.0.0 (initial)

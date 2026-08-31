@@ -1,59 +1,116 @@
-# Market Data Engine (`atlas-market-data`)
+# Module: core_engine/market_data
 
-> ⚠️ **GOVERNED MODULE** — See header in `src/lib.rs` before modifying.
+## Purpose
+Validates raw market data frames received via IPC, normalizes them to the
+canonical tick-data-v1 contract, and distributes validated events to downstream
+consumers. This module is the single authority for market data integrity.
 
-## Overview
-Production-grade Rust library for deterministic, normalized market data processing.
-All numeric values use scaled integers to ensure financial calculation accuracy.
-Governed by `contracts/schemas/market/tick-data-v1.json`.
+## Boundary
+- OWNS: Schema validation, normalization, quarantine, IPC deserialization, distribution
+- DOES NOT OWN: WebSocket connection, network IO, strategy logic, storage persistence
+- MUST NOT: Accept raw WebSocket frames directly (only via IPC from services/ingestion)
 
-## Architecture & Data Flow
+## Governance Alignment
+- Matrix B Compliance: Rust (Compute/Validation Layer)
+- Contract Policy: Outputs ONLY tick-data-v1 compliant events
+- Testing Policy: Schema validation tests + golden dataset replay required
+- ADR Reference: docs/decisions/006-websocket-ingestion-architecture.md
+- Lifecycle Policy: docs/decisions/007-market-data-lifecycle-policy.md
 
-```text
-Exchange WS/REST          Rust Engine              Consumers
-┌─────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│ Go Adapter  │───▶│ atlas-market-data │───▶│ Risk Engine     │ (direct struct)
-│ services/   │    │ core_engine/      │───▶│ Strategy Engine │ (direct struct)
-│ exchanges/  │    │ market_data/      │───▶│ Analytics/Agents│ (FFI/gRPC)
-└─────────────┘    └──────────────────┘    └─────────────────┘
-                          │
-                   Validates against
-                   tick-data-v1.json
-```
+## Architecture
+services/ingestion (Go)
+        |
+        | Unix Domain Socket (ipc-binary-v1)
+        v
++---------------------------+
+| core_engine/market_data   |  <- Rust: Validate + Normalize + Distribute
+|                           |
+|  [IPC Listener]           |
+|       |                   |
+|  [PluggableValidator]     |
+|       |                   |
+|  [Normalizer]             |
+|       |                   |
+|  [Distributor]            |
++---------------------------+
+        |
+        +---> Hot Path: Python agents (NormalizedTick)
+        +---> Warm Path: Storage backend (Parquet)
+        +---> Quarantine: Invalid frames (TTL-based purge)
 
-## Module Structure
-| File | Purpose |
-|------|---------|
-| `src/lib.rs` | Public API surface, re-exports, Governance header |
-| `src/types.rs` | `TickDataV1` struct, scaled integer types, `ErrorEnvelope` |
+## Inputs
+| Field | Source | Format | Validation |
+|-------|--------|--------|------------|
+| Raw WS Frames | services/ingestion via UDS | ipc-binary-v1 length-prefixed | Header + length check |
+| Tick Schema | contracts/schemas/tick-data-v1.json | JSON Schema | Loaded at startup |
 
-## Consumption Interface
-| Consumer | Access Method | Contract | Policy |
-|----------|--------------|----------|--------|
-| Risk Engine | Direct Rust struct access | tick-data-v1 | Write: market_data only; Read: risk |
-| Strategy Engine | Direct Rust struct access | tick-data-v1 | Write: market_data only; Read: strategy |
-| Analytics / AI Agents | FFI/gRPC (scaled int → decimal) | ffi-boundary-v1 | Serialization rules enforced |
+## Outputs
+| Output | Consumer | Format | Guarantee |
+|--------|----------|--------|-----------|
+| NormalizedTick | Python agents, storage, archiver | Rust struct / serialized | Schema-valid only |
+| QuarantinedFrame | Purge engine | Structured error + reason | TTL-based auto-purge |
+| Validation Metrics | Observability | Prometheus counters/gauges | Real-time |
 
-## Production Guarantees
-- **Deterministic**: No floating-point types; all numerics are scaled integers
-- **Immutable**: Tick objects are never mutated after creation
-- **Monotonic**: Timestamp validation enforced at ingestion boundary
-- **Bounded**: Metadata limited to 16 keys × 256 chars
-- **Safe**: `unsafe_code = forbid`, `panic = deny`, `clippy = deny`
-- **Error Handling**: Invalid ticks rejected with `ErrorEnvelope(code=TICK_INVALID, retryable=false)`
+## Data Flow
+1. Receive length-prefixed frame from UDS (ipc-binary-v1 spec)
+2. Deserialize header: validate length bounds (1..16MB)
+3. Run PluggableValidator chain against tick-data-v1 schema
+4. If valid: normalize to NormalizedTick struct, emit to distributor
+5. If invalid: create QuarantinedFrame with explicit reason, emit metric, buffer
+6. Quarantine buffer: FIFO, max 100 entries, TTL 60min, auto-purge with audit log
+7. NEVER silently drop, NEVER use default values, NEVER partially normalize
 
-## Validation Commands
-```bash
-make validate-market-data    # Full governance compliance check
-cargo clippy -- -D warnings  # Lint check only
-cargo test                   # Unit + integration tests
-```
+## Versioning
+- Input contract: ipc-binary-v1.spec.yaml (shared with Go)
+- Output contract: tick-data-v1.json (versioned, backward-compatible only)
+- NormalizedTick struct: versioned with serde, breaking change requires new ADR
 
-## Governance References
-| Artifact | Path |
-|----------|------|
-| Rust Policy | `governance/policies/rust-policy.yaml` |
-| Market Data Contract | `contracts/schemas/market/tick-data-v1.json` |
-| FFI Boundary Spec | `contracts/schemas/sdk/ffi-boundary-v1.json` |
-| Module Ownership | `governance/ownership/module-ownership.yaml` |
-| Architecture Lock | `governance/01_ARCHITECTURE_LOCK.md` |
+## Sharing / Consumption Model
+### How Other Modules Consume This Module
+- NEVER import Rust internals directly from Go or Python
+- Hot path consumers subscribe to distribution channel (read-only NormalizedTick)
+- Storage backends receive batches via StorageBackend trait
+- Archive service receives tagged events via catalog metadata
+- All consumption is PULL-based or event-driven, NEVER polling raw buffers
+
+### Anti-Patterns (Forbidden)
+- Direct memory sharing without serialization boundary
+- Modifying NormalizedTick after emission
+- Bypassing validator chain for "trusted" sources
+- Silent quarantine overflow
+
+## Error Handling
+| Error Type | Behavior | Silenced? |
+|------------|----------|-----------|
+| IPC header malformed | Log hex dump + close connection + metric | NO |
+| Schema validation fail | Quarantine + reason + metric | NO |
+| Normalization panic | Catch, quarantine original frame, alert CRITICAL | NO |
+| Distributor backpressure | Buffer bounded + drop oldest + metric | NO |
+| Quarantine TTL expired | Auto-purge + audit log + metric | NO |
+
+ZERO TOLERANCE: Every invalid frame produces observable evidence. No silent paths.
+
+## Observability
+- lifecycle_events_total{stage="validate", status}: counter
+- lifecycle_events_total{stage="normalize", status}: counter
+- lifecycle_latency_seconds{stage}: histogram
+- lifecycle_quarantine_depth{reason}: gauge
+- lifecycle_purge_total{stage="quarantine", reason, policy}: counter
+- market_data_schema_errors_total{field}: counter
+- market_data_normalized_ticks_total{symbol, venue}: counter
+
+## Testing
+| Test Type | Scope | Required? |
+|-----------|-------|-----------|
+| Unit | Validator chain, normalizer, quarantine logic | YES |
+| Contract | IPC deserialization vs ipc-binary-v1.spec.yaml | YES |
+| Schema | tick-data-v1.json validation (valid + invalid samples) | YES |
+| Golden Dataset | Replay recorded frames through full pipeline | YES |
+| Cross-Language | Go serialize -> Rust deserialize round-trip | YES |
+| Failure Mode | Malformed IPC, schema violation, distributor saturated | YES |
+| Purge Audit | Verify every quarantine purge produces metric + log | YES |
+
+## Change Log
+| Date | ADR | Change | Author |
+|------|-----|--------|--------|
+| 2026-09-01 | ADR-007 | Lifecycle stages VALIDATE + NORMALIZE defined, PluggableValidator interface specified | Atlas-AI Governance |
