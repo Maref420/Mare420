@@ -113,8 +113,8 @@ def log_strategy_signal_rejected(
         try:
             parsed = json.loads(raw_json)
             event_id = parsed.get("event_id", "unknown")
-        except Exception:
-            pass
+        except (json.JSONDecodeError, TypeError, KeyError):
+            event_id = "unknown"  # explicit fallback for malformed JSON
 
         record = AuditRecord(
             contract_version="1.0.0",

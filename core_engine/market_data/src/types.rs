@@ -1,3 +1,16 @@
+//! ╔═══════════════════════════════════════════════════════════╗
+//! ║ MODULE: atlas-market-data                                ║
+//! ║ OWNER: core_engine/market_data (Rust)                    ║
+//! ║ CONTRACT: contracts/schemas/market/tick-data-v1.json     ║
+//! ║ POLICY: governance/policies/rust-policy.yaml             ║
+//! ║ STATUS: Production-Grade | Phase 1 Active                ║
+//! ╠═══════════════════════════════════════════════════════════╣
+//! ║ ⛔ DO NOT MODIFY WITHOUT:                                ║
+//! ║   1. Checking contracts/schemas/market/tick-data-v1.json ║
+//! ║   2. Running `make validate-market-data`                 ║
+//! ║   3. Updating docs/decisions/ with ADR                   ║
+//! ║ ⛔ NO FLOATS. NO PANIC. NO UNSAFE.                       ║
+//! ╚═══════════════════════════════════════════════════════════╝
 //! Tick Data Types — Governed by contracts/schemas/market/tick-data-v1.json
 //! All numeric fields use scaled integers per ADR-2026-08-30-001.
 //! No floating-point types allowed per rust-policy.yaml deterministic_processing_required.
