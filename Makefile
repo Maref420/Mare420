@@ -192,3 +192,28 @@ full-governance-check: ## Run ALL governance gates (pre-commit standard)
 	@echo ""
 	@echo "✅ ALL GOVERNANCE GATES PASSED"
 	@echo "   Ready for commit. Register changes in docs/decisions/"
+
+.PHONY: build-ingestion test-ingestion validate-ingestion
+
+build-ingestion:
+	@cd services/ingestion && go build -o ../../bin/ws-ingestion ./...
+
+test-ingestion:
+	@cd services/ingestion && go test -race -count=1 -coverprofile=coverage.out ./...
+
+validate-ingestion:
+	@test -f services/ingestion/README.md || (echo "FAIL: README missing" && exit 1)
+	@grep -q "ADR-006" services/ingestion/README.md || (echo "FAIL: ADR-006 ref missing" && exit 1)
+	@test -f docs/decisions/006-websocket-ingestion-architecture.md || (echo "FAIL: ADR-006 missing" && exit 1)
+
+.PHONY: cross-validate-ipc generate-golden-fixtures
+
+generate-golden-fixtures:
+	@cd services/ingestion && go test -run TestGenerateGoldenFixtures -v ./internal/ipc/
+
+cross-validate-ipc: generate-golden-fixtures
+	@echo "=== Go IPC tests ==="
+	@cd services/ingestion && go test -v -count=1 ./internal/ipc/
+	@echo "=== Rust IPC contract tests ==="
+	@cd core_engine/market_data && cargo test --test ipc_contract_test -- --nocapture
+	@echo "=== Cross-validation PASSED ==="
