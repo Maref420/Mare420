@@ -23,8 +23,8 @@ import (
 )
 
 const (
-	bybitTestnetWS      = "wss://testnet.bybit.com/v5/public"
-	bybitMainnetWS      = "wss://stream.bybit.com/v5/public"
+	bybitTestnetWS      = "wss://stream-testnet.bybit.com/v5/public/spot"
+	bybitMainnetWS      = "wss://stream.bybit.com/v5/public/spot"
 	bybitSubscribeRate  = 10.0  // ops/sec
 	bybitSubscribeBurst = 5.0   // burst capacity
 )
@@ -190,4 +190,12 @@ func (b *BybitAdapter) IsConnected() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.connected
+}
+// safePreview returns truncated preview for logging without leaking secrets (C1).
+func safePreview(data []byte) string {
+	s := string(data)
+	if len(s) > 200 {
+		s = s[:200] + "...[truncated]"
+	}
+	return s
 }
