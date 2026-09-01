@@ -70,3 +70,29 @@ versioning_policy:
   breaking_change_requires: new_major_version + new_ADR
   additive_change_requires: minor_version_bump + ADR_amendment
   current_status: v1.0.0 (initial)
+
+# === TRACE HEADER AMENDMENT (v1.1) ===
+# Added for data lifecycle traceability per CR-P0-004 Section H
+# Backward-compatible: frames WITHOUT trace header still valid
+# Format when present: [4-byte length][1-byte flags][8-byte trace_timestamp_ms][variable trace_exchange_tag][payload]
+# Flags byte: bit 0 = trace_present (1=trace fields follow, 0=legacy format)
+# trace_exchange_tag: variable-length UTF-8 string (e.g., "bybit", "okx")
+#   preceded by 1-byte tag_length
+# When flags bit 0 = 0, frame is pure legacy format (no trace fields)
+# When flags bit 0 = 1, parser reads trace fields THEN payload
+# Maximum trace_exchange_tag length: 32 bytes
+# trace_timestamp_ms: uint64 big-endian milliseconds since epoch
+
+trace_header:
+  enabled: true
+  backward_compatible: true
+  flags_offset: 4        # immediately after length prefix
+  flag_trace_present: 0x01
+  timestamp_offset: 5    # 8 bytes uint64 BE
+  tag_length_offset: 13  # 1 byte
+  tag_max_length: 32
+  trace_id_format: "{exchange}-{timestamp_ms}-{sequence}"
+  sampling:
+    default_rate: 1.0    # 100% propagation
+    high_throughput_rate: 0.01  # 1% full trace above threshold
+    high_throughput_threshold_fps: 10000

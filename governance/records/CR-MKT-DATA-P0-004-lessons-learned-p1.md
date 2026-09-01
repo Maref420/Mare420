@@ -68,3 +68,28 @@ Before presenting ANY code to user, verify:
 ## Applicability
 This checklist applies to ALL future phases (P1-Final, P2-P6) and ALL
 languages (Go, Rust, Python). No exceptions.
+
+### G. Governance
+- G1. ADR reference in code comments
+- G2. README updated if module scope changed
+- G3. No parallel paths created
+- G4. No governance rules modified without new ADR
+
+### H. Data Lifecycle Traceability (Production-Grade Business Requirement)
+- H1. Every raw frame receives unique trace_id at INGEST stage (Go adapter)
+- H2. trace_id propagated through ALL lifecycle stages:
+      INGEST → VALIDATE → NORMALIZE → DISTRIBUTE → CONSUME | STORE | ARCHIVE
+- H3. trace_id included in:
+      - IPC binary header (ipc-binary-v1 spec amendment)
+      - Rust NormalizedTick struct
+      - All lifecycle_ metrics as label
+      - Structured logs at every stage
+      - Quarantine/purge audit records
+- H4. End-to-end trace verification test exists:
+      Inject known frame → verify trace_id appears at CONSUME/STORE output
+- H5. trace_id format: {exchange}-{timestamp_ms}-{sequence}
+      (sortable, debuggable, no external dependency)
+- H6. Sampling strategy defined for high-throughput scenarios
+      (e.g., 1% full trace, 100% trace_id propagation)
+- H7. Compliance query interface specified:
+      Given trace_id → retrieve all lifecycle events across all stages
