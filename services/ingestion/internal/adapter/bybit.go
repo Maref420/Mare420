@@ -2,9 +2,11 @@
 // GOVERNANCE: Matrix B - Go Network/Transfer Layer
 // ADR: docs/decisions/006-websocket-ingestion-architecture.md
 // ADR: docs/decisions/007a-trace-id-propagation-addendum.md
-// EXCHANGE: Bybit v5 Public WebSocket (no auth required for public channels)
+// EXCHANGE: Bybit v5 Public WebSocket
 // DOCS: https://bybit-exchange.github.io/docs/v5/ws/connect
 // CHECKLIST: CR-P0-004 v3 Sections A-H
+// RATE LIMITS: 10 ops/sec subscribe, 50 msg/s outbound (D1)
+// RECONNECT: State recovery with automatic re-subscribe (D4)
 // WARNING: Raw frames only. No parsing, no normalization.
 
 package adapter
@@ -21,8 +23,10 @@ import (
 )
 
 const (
-	bybitTestnetWS = "wss://testnet.bybit.com/v5/public"
-	bybitMainnetWS = "wss://stream.bybit.com/v5/public"
+	bybitTestnetWS      = "wss://testnet.bybit.com/v5/public"
+	bybitMainnetWS      = "wss://stream.bybit.com/v5/public"
+	bybitSubscribeRate  = 10.0  // ops/sec
+	bybitSubscribeBurst = 5.0   // burst capacity
 )
 
 // BybitAdapter implements ExchangeAdapter for Bybit v5 public WebSocket.
@@ -32,12 +36,17 @@ type BybitAdapter struct {
 	mu        sync.Mutex
 	connected bool
 	tracer    *TraceGenerator
+	limiter   *RateLimiter
+
+	// D4: Subscription state for reconnect recovery
+	lastSymbols []string
 }
 
 func NewBybitAdapter(cfg Config) *BybitAdapter {
 	return &BybitAdapter{
-		cfg:    cfg,
-		tracer: NewTraceGenerator("bybit"),
+		cfg:     cfg,
+		tracer:  NewTraceGenerator("bybit"),
+		limiter: NewRateLimiter(bybitSubscribeBurst, bybitSubscribeRate),
 	}
 }
 
@@ -63,6 +72,17 @@ func (b *BybitAdapter) Connect(ctx context.Context) error {
 	b.connected = true
 	metrics.ConnectionState.Set(1)
 	slog.Info("bybit connected", "url", wsURL, "testnet", b.cfg.Testnet)
+
+	// D4: Re-subscribe if we have previous state
+	if len(b.lastSymbols) > 0 {
+		slog.Info("bybit re-subscribing after reconnect", "symbols", b.lastSymbols)
+		metrics.ReconnectionAttempts.WithLabelValues("resubscribe").Inc()
+		if err := b.subscribeLocked(ctx, b.lastSymbols); err != nil {
+			slog.Error("bybit re-subscribe failed", "error", err)
+			// Non-fatal: connection is alive, just missing subscriptions
+		}
+	}
+
 	return nil
 }
 
@@ -72,6 +92,25 @@ func (b *BybitAdapter) Subscribe(ctx context.Context, symbols []string) error {
 
 	if !b.connected || b.conn == nil {
 		return fmt.Errorf("bybit not connected")
+	}
+
+	// D4: Cache symbols for reconnect recovery
+	b.lastSymbols = make([]string, len(symbols))
+	copy(b.lastSymbols, symbols)
+
+	return b.subscribeLocked(ctx, symbols)
+}
+
+// subscribeLocked performs subscription with rate limiting (D1).
+// Caller MUST hold b.mu.
+func (b *BybitAdapter) subscribeLocked(ctx context.Context, symbols []string) error {
+	// D1: Rate limit check
+	if !b.limiter.Allow() {
+		metrics.ErrorEvents.WithLabelValues("bybit_rate_limited").Inc()
+		slog.Warn("bybit subscribe rate limited, waiting", "symbols", symbols)
+		if err := b.limiter.Wait(ctx); err != nil {
+			return fmt.Errorf("rate limiter wait cancelled: %w", err)
+		}
 	}
 
 	args := make([]string, len(symbols))
@@ -103,6 +142,10 @@ func (b *BybitAdapter) ReadFrame(ctx context.Context) ([]byte, string, error) {
 	_, data, err := conn.Read(ctx)
 	if err != nil {
 		metrics.ErrorEvents.WithLabelValues("bybit_read").Inc()
+		b.mu.Lock()
+		b.connected = false
+		metrics.ConnectionState.Set(2) // reconnecting
+		b.mu.Unlock()
 		return nil, "", fmt.Errorf("bybit read failed: %w", err)
 	}
 
