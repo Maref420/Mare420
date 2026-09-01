@@ -131,3 +131,35 @@ func (w *Writer) Close() error {
 	}
 	return nil
 }
+
+// WriteRaw sends a pre-serialized frame (already includes length header + flags + trace)
+// WITHOUT re-wrapping via SerializeFrame(). Use this when the caller has already
+// constructed the complete binary frame via SerializeFrameTraced() or SerializeFrame().
+// GOVERNANCE: No parallel path — same buffer/channel as Write(), just skips re-serialization.
+func (w *Writer) WriteRaw(frame []byte) error {
+	if len(frame) == 0 {
+		return fmt.Errorf("zero-length raw frame rejected per ipc-binary-v1 spec")
+	}
+	if len(frame) > maxFrameSize+4 {
+		return fmt.Errorf("raw frame size %d exceeds max %d per ipc-binary-v1 spec", len(frame), maxFrameSize+4)
+	}
+	select {
+	case w.buffer <- frame:
+		metrics.IPCBackpressure.Set(float64(len(w.buffer)))
+		return nil
+	default:
+		select {
+		case <-w.buffer:
+			metrics.FramesDropped.WithLabelValues("backpressure").Inc()
+		default:
+		}
+		select {
+		case w.buffer <- frame:
+			metrics.IPCBackpressure.Set(float64(len(w.buffer)))
+			return nil
+		default:
+			metrics.FramesDropped.WithLabelValues("backpressure_overflow").Inc()
+			return fmt.Errorf("IPC buffer overflow: raw frame dropped after backpressure eviction")
+		}
+	}
+}
