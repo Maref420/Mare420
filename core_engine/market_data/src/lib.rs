@@ -16,6 +16,8 @@
 //! Policy: governance/policies/rust-policy.yaml
 
 pub mod types;
+pub mod ipc_parser;
 
 // Re-export primary types for ergonomic access
 pub use types::{TickDataV1, TickValidationError};
+pub use ipc_parser::{parse_frame, ParsedFrame, TraceInfo, IpcParseError};
