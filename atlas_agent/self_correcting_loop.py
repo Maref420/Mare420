@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
+from .code_patcher import CodePatcher, PatchTarget
 
 
 class RepairStrategy(Enum):
@@ -119,6 +120,7 @@ class SelfCorrectingLoop:
     
     def __init__(self) -> None:
         self.metrics = LoopMetrics()
+        self.patcher = CodePatcher()
         self._attempt_history: list[AttemptRecord] = []
     
     def determine_strategy(self, attempt: int, previous_errors: list[str]) -> RepairStrategy:
@@ -249,5 +251,51 @@ class SelfCorrectingLoop:
         for i in range(1, attempts + 1):
             self.metrics.record_attempt(i, final_score if i == attempts else 0.0)
     
+
+    def attempt_patch_repair(
+        self,
+        code: str,
+        language: str,
+        llm_client: Any,
+    ) -> tuple[str, bool]:
+        """Attempt surgical patch repair instead of full regeneration.
+        
+        Returns (patched_code, success).
+        Only works for Python with AST-analyzable issues.
+        Falls back to full regeneration if patching fails.
+        """
+        if language != "python":
+            return code, False  # Patching only supported for Python currently
+        
+        targets = self.patcher.analyze_python(code)
+        if not targets:
+            return code, False  # No analyzable targets
+        
+        patched_code = code
+        patches_applied = 0
+        
+        for target in targets[:3]:  # Max 3 patches per attempt
+            prompt = self.patcher.build_patch_prompt(target, language)
+            try:
+                patched_section = llm_client.generate_code(prompt, language)
+                patched_code = self.patcher.apply_patch(patched_code, target, patched_section)
+                patches_applied += 1
+                logger.info("Applied patch: %s at line %d", target.issue_type, target.line_start)
+            except Exception as e:
+                logger.warning("Patch failed for %s: %s", target.issue_type, e)
+                continue
+        
+        # Validate patched code
+        if language == "python":
+            import ast as ast_module
+            try:
+                ast_module.parse(patched_code)
+                return patched_code, patches_applied > 0
+            except SyntaxError:
+                logger.warning("Patched code has syntax errors — reverting")
+                return code, False
+        
+        return patched_code, patches_applied > 0
+
     def get_metrics(self) -> dict:
         return self.metrics.summary()
