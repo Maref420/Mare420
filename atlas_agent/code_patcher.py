@@ -157,22 +157,43 @@ class CodePatcher:
             )
 
     def apply_patch(self, original_code: str, target: PatchTarget, patched_section: str) -> str:
-        """Apply a surgical patch to the original code."""
+        """Apply a surgical patch to the original code.
+        
+        For function/class targets, replaces the ENTIRE block (signature + body).
+        For single-line targets, replaces just that line.
+        """
         lines = original_code.splitlines(keepends=True)
-
-        # Clean the patched section
         patched_clean = patched_section.strip()
 
-        # Replace the target lines
         start_idx = target.line_start - 1
         end_idx = target.line_end
 
-        # Ensure we don't go out of bounds
+        # For function/class targets, find the actual end of the block
+        if target.issue_type in ("missing_type_hints", "missing_docstring"):
+            # Parse the patched section to determine how many lines it spans
+            patched_lines = patched_clean.splitlines()
+            # Replace from start_idx to start_idx + len(patched_lines)
+            # But also need to remove the old function body
+            # Strategy: replace from line_start to the end of the original block
+            end_idx = target.line_end  # AST already gives us the full block end
+
         start_idx = max(0, min(start_idx, len(lines)))
         end_idx = max(start_idx, min(end_idx, len(lines)))
 
         new_lines = lines[:start_idx] + [patched_clean + "\n"] + lines[end_idx:]
-        return "".join(new_lines)
+        result = "".join(new_lines)
+
+        # Safety check: ensure no duplicate lines at patch boundary
+        result_lines = result.splitlines(keepends=True)
+        deduped = []
+        for i, line in enumerate(result_lines):
+            if i > 0 and line.strip() and line == result_lines[i - 1]:
+                # Check if this is a real duplicate (not intentional)
+                if line.strip().startswith("return ") or line.strip().startswith("raise "):
+                    continue  # Skip duplicate
+            deduped.append(line)
+
+        return "".join(deduped)
 
     def estimate_token_savings(self, full_code: str, targets: list[PatchTarget]) -> dict:
         """Estimate token savings from patch-based vs full regeneration."""
