@@ -258,7 +258,12 @@ class SelfCorrectingLoop:
         language: str,
         llm_client: Any,
     ) -> tuple[str, bool]:
-        """Attempt surgical patch repair instead of full regeneration.
+        """EXPERIMENTAL: Attempt surgical patch repair.
+        
+        NOTE: Current LLMs cannot reliably edit small code sections.
+        They tend to regenerate entire files when asked to patch.
+        This method is kept for future evaluation but NOT used in production loop.
+        Full regeneration with structured repair context is more reliable.
         
         Returns (patched_code, success).
         Only works for Python with AST-analyzable issues.

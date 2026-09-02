@@ -170,34 +170,6 @@ class Orchestrator:
                 })
                 break
 
-            # Try surgical patch repair BEFORE full regeneration
-            if lang == "python" and source_files and attempt < max_attempts:
-                first_file = os.path.join(requirement.target_folder, source_files[0])
-                if os.path.exists(first_file):
-                    with open(first_file) as f:
-                        current_code = f.read()
-                    patched_code, patch_success = self.loop.attempt_patch_repair(
-                        current_code, lang, self.generator.llm,
-                    )
-                    if patch_success:
-                        with open(first_file, "w") as f:
-                            f.write(patched_code)
-                        logger.info("Attempt %d: surgical patch applied, re-validating", attempt)
-                        # Re-validate patched code
-                        syntax_result = self.validator.check_syntax(first_file, lang)
-                        if syntax_result.passed:
-                            quality = self.loop.compute_quality_score(
-                                syntax_passed=True,
-                                security_findings=artifact.security_findings,
-                                generated_files=generated_files,
-                                language=lang,
-                            )
-                            if quality.passed and self.governance.validate_artifact(artifact):
-                                self.loop.record_outcome(True, attempt, quality.overall, [])
-                                self.governance.log_audit("pipeline_success_patch", "orchestrator", {
-                                    "attempts": attempt, "score": quality.overall, "method": "surgical_patch",
-                                })
-                                break
 
             # Build structured repair context for next attempt (full regen fallback)
             anti_patterns = list(self.memory.get_anti_patterns())
