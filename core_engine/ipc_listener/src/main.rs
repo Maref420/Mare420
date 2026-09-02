@@ -42,7 +42,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!(socket_path = %socket_path, "listening for IPC connections");
 
     let shutdown = async {
-        signal::ctrl_c().await.ok();
+        if let Err(e) = signal::ctrl_c().await {
+            warn!("failed to listen for ctrl_c: {}", e);
+        }
         info!("shutdown signal received");
     };
 

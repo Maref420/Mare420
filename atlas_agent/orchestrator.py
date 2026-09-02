@@ -7,6 +7,8 @@ from .generator import GeneratorEngine
 from .governance import GovernanceEngine
 from .models import ApprovalStatus, Artifact, Requirement, SecurityLevel, Specification
 from .validator import ValidatorEngine
+from .memory import LearningMemory, Decision
+from .memory.experience import Source, Method, Artifact as MemArtifact
 
 
 class Orchestrator:
@@ -18,6 +20,7 @@ class Orchestrator:
         self.governance = GovernanceEngine()
         self.generator = GeneratorEngine()
         self.validator = ValidatorEngine()
+        self.memory = LearningMemory()
 
     def run_pipeline(self, requirement: Requirement, architecture: str, modules: list[str]) -> Artifact:
         """

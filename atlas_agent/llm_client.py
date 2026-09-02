@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from groq import Groq
+from .llm_cache import LLMCache
 
 load_dotenv()
 
@@ -25,7 +26,9 @@ class LLMClient:
         if not api_key:
             raise ValueError("GROQ_API_KEY is missing in .env file")
         self.client = Groq(api_key=api_key)
-        self.model = "openai/gpt-oss-120b"
+        self._cache = LLMCache()
+        self.model = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
+        self.fallback_model = os.getenv("LLM_FALLBACK_MODEL", "openai/gpt-oss-20b")
 
     def _check_restricted_content(self, requirement: str) -> str | None:
         """
@@ -69,6 +72,12 @@ class LLMClient:
 
         Ensure the code follows best practices, includes error handling, and is production-ready.
         """
+        # Check cache first
+        cached = self._cache.get(prompt, self.model, 0.2)
+        if cached is not None:
+            self._circuit_breaker.record_success()
+            return cached
+
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -96,24 +105,23 @@ class LLMClient:
 
         {code}
         """
-<<<<<<< HEAD
+        # Check cache first
+        cached = self._cache.get(prompt, self.model, 0.2)
+        if cached is not None:
+            self._circuit_breaker.record_success()
+            return cached
+
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1
             )
-            return response.choices[0].message.content
-        except Exception as e:  # noqa: BLE001
+            content = response.choices[0].message.content
+            if content is None:
+                raise RuntimeError("LLM security analysis returned empty content")
+            return content
+        except RuntimeError:
+            raise
+        except Exception as e:
             raise RuntimeError(f"Security analysis failed: {e!s}") from e
-=======
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1
-        )
-        content = response.choices[0].message.content
-        if content is None:
-            raise RuntimeError("LLM security analysis returned empty content")
-        return content
->>>>>>> a549a4d (fix(governance): real-world validation fixes and security hardening)

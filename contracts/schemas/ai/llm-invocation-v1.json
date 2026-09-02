@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "type": "llm-invocation-contract",
+  "purpose": "Strict boundaries for external LLM invocation. Privacy + \u00a717 compliance.",
+  "governance": {
+    "specification_id": "llm-invocation-v1",
+    "owner": "atlas_agent_team",
+    "approval_date": "2026-09-03",
+    "references": [
+      "governance/policies/security-policy.yaml",
+      "CONSTITUTION.md \u00a717"
+    ]
+  },
+  "privacy_boundary": {
+    "may_leave_vps": [
+      "sanitized_requirement",
+      "language",
+      "module_name",
+      "governance_refs",
+      "approved_code_patterns",
+      "rejected_anti_patterns"
+    ],
+    "must_never_leave_vps": [
+      "source_code",
+      "api_keys",
+      "market_data",
+      "trading_strategies",
+      "risk_parameters",
+      "exchange_credentials",
+      "database_contents",
+      "env_variables"
+    ]
+  },
+  "prohibited_requests": {
+    "hft_core": [
+      "high-frequency",
+      "HFT core",
+      "millisecond execution"
+    ],
+    "execution_logic": [
+      "order execution",
+      "trade execution",
+      "execution engine"
+    ],
+    "risk_systems": [
+      "risk engine",
+      "position limits",
+      "exposure control"
+    ],
+    "trading_strategies": [
+      "trading strategy",
+      "signal generation",
+      "backtest"
+    ]
+  },
+  "resource_limits": {
+    "max_concurrent": 2,
+    "timeout_seconds": 30,
+    "max_tokens": 2048,
+    "rate_limit_rpm": 10,
+    "circuit_breaker_threshold": 5,
+    "circuit_breaker_reset_seconds": 60
+  }
+}
