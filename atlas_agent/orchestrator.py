@@ -1,4 +1,5 @@
 import os
+import time
 """
 Orchestrator for ATLAS AI Agent
 Coordinates the workflow between Governance, Generator, and Validator
@@ -7,6 +8,7 @@ from .generator import GeneratorEngine
 from .governance import GovernanceEngine
 from .models import ApprovalStatus, Artifact, Requirement, SecurityLevel, Specification
 from .validator import ValidatorEngine
+from .self_correcting_loop import SelfCorrectingLoop, RepairStrategy, QualityScore
 from .memory import LearningMemory, Decision
 from .memory.experience import Source, Method, Artifact as MemArtifact
 
@@ -21,6 +23,7 @@ class Orchestrator:
         self.generator = GeneratorEngine()
         self.validator = ValidatorEngine()
         self.memory = LearningMemory()
+        self.loop = SelfCorrectingLoop()
 
     def run_pipeline(self, requirement: Requirement, architecture: str, modules: list[str]) -> Artifact:
         """
