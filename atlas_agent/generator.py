@@ -241,6 +241,31 @@ class GeneratorEngine:
 
             logger.info("Generated: %s (%d chars)", file_path, len(clean_code))
 
+        # Go: Generate table-driven tests as second LLM call
+        if lang == "go":
+            for rel_path in generated_files:
+                if rel_path.endswith(".go") and not rel_path.endswith("_test.go"):
+                    abs_path = os.path.join(target_dir, rel_path)
+                    with open(abs_path, "r") as f:
+                        main_code = f.read()
+                    test_prompt = (
+                        "Generate ONLY Go table-driven tests for this code.\n"
+                        "Same package. Use func TestXxx(t *testing.T) with []struct.\n"
+                        "Cover success and error paths. Import only testing and time.\n"
+                        "ONLY the test code. No markdown.\n\n"
+                        "Source code:\n" + main_code
+                    )
+                    try:
+                        test_code = self.llm.generate_code(test_prompt, "go")
+                        test_file = rel_path.replace(".go", "_test.go")
+                        test_abs = os.path.join(target_dir, test_file)
+                        with open(test_abs, "w") as f:
+                            f.write(test_code.rstrip() + "\n")
+                        generated_files.append(test_file)
+                        logger.info("Generated tests: %s", test_file)
+                    except RuntimeError as e:
+                        logger.warning("Go test generation failed: %s", e)
+
         # Go/Rust project manifests
         if lang == "go":
             go_mod_path = os.path.join(target_dir, "go.mod")
