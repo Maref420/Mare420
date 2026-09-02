@@ -1,5 +1,8 @@
 import os
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 """
 Orchestrator for ATLAS AI Agent
 Coordinates the workflow between Governance, Generator, and Validator
