@@ -111,6 +111,25 @@ class GeneratorEngine:
 
         return "\n".join(parts) if parts else ""
 
+    # Python stdlib module names that must NOT be used as file names
+    PYTHON_STDLIB_CONFLICTS = {
+        "math", "os", "sys", "json", "time", "re", "io", "abc",
+        "ast", "csv", "ssl", "subprocess", "collections", "typing",
+        "logging", "unittest", "random", "hashlib", "datetime",
+        "pathlib", "functools", "itertools", "copy", "socket",
+        "threading", "multiprocessing", "email", "html", "http",
+        "urllib", "sqlite3", "pickle", "shelve", "struct", "codecs",
+        "decimal", "fractions", "statistics", "secrets", "uuid",
+    }
+
+    def _safe_module_name(self, name: str, lang: str) -> str:
+        """Ensure module name doesn't conflict with stdlib."""
+        if lang == "python" and name.lower() in self.PYTHON_STDLIB_CONFLICTS:
+            safe = f"{name}_module"
+            logger.warning("Module name '%s' conflicts with stdlib, renamed to '%s'", name, safe)
+            return safe
+        return name
+
     def _clean_code(self, code: str) -> str:
         """Remove markdown fences and extra whitespace."""
         code = re.sub(r'^```\w*\s*', '', code, flags=re.MULTILINE)
@@ -187,11 +206,14 @@ class GeneratorEngine:
                 prompt_parts.append(f"\n{memory_context}")
             if repair_section:
                 prompt_parts.append(repair_section)
-            prompt_parts.append(
+            rules = (
                 "RULES: Production-grade only. Include error handling. "
                 "No floats in financial calculations. "
                 "Provide ONLY complete source code. No markdown, no explanations."
             )
+            if lang == "go":
+                rules += " Use ONLY Go standard library packages. Do NOT import external dependencies."
+            prompt_parts.append(rules)
 
             prompt = "\n".join(prompt_parts)
             prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()[:16]
