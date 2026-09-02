@@ -18,6 +18,7 @@ from enum import Enum
 from dotenv import load_dotenv
 from groq import Groq, APIError, APIConnectionError, APITimeoutError, RateLimitError
 from .llm_cache import LLMCache
+from .restriction_guard import RestrictionGuard
 
 load_dotenv()
 logger = logging.getLogger(__name__)
@@ -91,6 +92,7 @@ class LLMClient:
         self._request_timestamps: list[float] = []
         self._rate_lock = threading.Lock()
         self._cache = LLMCache()
+        self._guard = RestrictionGuard()
 
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
@@ -114,12 +116,12 @@ class LLMClient:
             self._request_timestamps.append(now)
 
     def _check_restricted_content(self, requirement: str) -> Optional[str]:
-        req_lower = requirement.lower()
-        for category, patterns in self.RESTRICTED_CATEGORIES.items():
-            for pattern in patterns:
-                if pattern.lower() in req_lower:
-                    return category
+        """Delegate to 3-layer RestrictionGuard (§17 enforcement)."""
+        decision = self._guard.check_request(requirement)
+        if not decision.allowed:
+            return decision.category.value if decision.category else "restricted"
         return None
+
 
     def _call_api(self, prompt: str, model: str, temperature: float) -> str:
         """Single API call with typed exception handling."""
