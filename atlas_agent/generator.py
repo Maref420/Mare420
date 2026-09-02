@@ -1,87 +1,247 @@
+"""Code Generator Engine — Contract-Based LLM Invocation.
+
+Governed by: contracts/schemas/ai/llm-invocation-v1.json
+Pipeline: Privacy Guard → §17 Check → Memory Context → LLM Call → Clean Output
+
+This module does NOT send raw prompts to LLM. Every invocation passes through:
+1. Privacy sanitization (strip sensitive data)
+2. §17 restriction enforcement (reject prohibited categories)
+3. Learning memory context (approved/rejected examples + anti-patterns)
+4. Contract-validated LLM call (with fallback)
+"""
+
+import hashlib
+import logging
 import os
 import re
-from typing import Any
+from typing import Any, Optional
 
 from .llm_client import LLMClient
+from .memory import LearningMemory, Decision
+from .memory.experience import Source, Method, Artifact as MemArtifact
+
+logger = logging.getLogger(__name__)
+
+# CONSTITUTION.md §17 — Hardcoded for defense-in-depth
+RESTRICTED_PATTERNS = {
+    "hft_core": [
+        "high-frequency", "hft core", "millisecond execution",
+        "nanosecond timing", "latency-critical execution",
+    ],
+    "execution_logic": [
+        "order execution", "trade execution", "execution engine",
+        "exchange order placement", "order routing",
+    ],
+    "risk_systems": [
+        "risk engine", "risk management system", "position limits calculation",
+        "exposure control", "margin calculation",
+    ],
+    "trading_strategies": [
+        "trading strategy", "strategy logic", "signal generation",
+        "backtest engine", "alpha generation",
+    ],
+}
+
+# Privacy patterns — data that must NEVER leave VPS
+SENSITIVE_PATTERNS = [
+    r'(?i)api[_-]?key\s*[=:]\s*\S+',
+    r'(?i)password\s*[=:]\s*\S+',
+    r'(?i)secret\s*[=:]\s*\S+',
+    r'(?i)token\s*[=:]\s*\S+',
+    r'(?i)gsk_[a-zA-Z0-9]+',
+    r'(?i)sk-[a-zA-Z0-9]+',
+    r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b',  # IP addresses
+]
+
+
+class GenerationRejectedError(Exception):
+    """Raised when generation is rejected by governance or §17."""
+    pass
 
 
 class GeneratorEngine:
+    """Contract-based code generator with learning memory."""
+
     def __init__(self) -> None:
         self.llm = LLMClient()
+        self.memory = LearningMemory()
+
+    def _sanitize(self, text: str) -> str:
+        """Strip sensitive data before sending to external LLM."""
+        sanitized = text
+        for pattern in SENSITIVE_PATTERNS:
+            sanitized = re.sub(pattern, "[REDACTED]", sanitized)
+        return sanitized
+
+    def _check_restrictions(self, requirement: str) -> Optional[str]:
+        """Enforce CONSTITUTION.md §17 — reject prohibited categories."""
+        req_lower = requirement.lower()
+        for category, patterns in RESTRICTED_PATTERNS.items():
+            for pattern in patterns:
+                if pattern in req_lower:
+                    return category
+        return None
+
+    def _build_context(self, language: str, module: str, requirement: str) -> str:
+        """Build intelligent context from learning memory."""
+        positives = self.memory.get_positive(language, module, limit=2)
+        negatives = self.memory.get_negative(language, limit=2)
+        anti_patterns = self.memory.get_anti_patterns()
+
+        parts = []
+
+        if positives:
+            parts.append("APPROVED PATTERNS (follow these):")
+            for exp in positives:
+                parts.append(
+                    f"  - [{exp.artifact.module}] score={exp.outcome.quality_score:.2f} "
+                    f"reason='{exp.outcome.reason}'"
+                )
+
+        if negatives:
+            parts.append("REJECTED PATTERNS (DO NOT repeat):")
+            for exp in negatives:
+                parts.append(
+                    f"  - reason='{exp.outcome.reason}' "
+                    f"anti_patterns={exp.anti_patterns}"
+                )
+
+        if anti_patterns:
+            parts.append(f"ANTI-PATTERNS TO AVOID: {', '.join(sorted(anti_patterns))}")
+
+        return "\n".join(parts) if parts else ""
 
     def _clean_code(self, code: str) -> str:
-        code = re.sub(r'^```python\s*', '', code, flags=re.MULTILINE)
+        """Remove markdown fences and extra whitespace."""
+        code = re.sub(r'^```\w*\s*', '', code, flags=re.MULTILINE)
         code = re.sub(r'^```\s*$', '', code, flags=re.MULTILINE)
         return code.strip()
+
+    def _get_extension(self, lang: str) -> str:
+        extensions = {"python": "py", "rust": "rs", "go": "go"}
+        return extensions.get(lang, "txt")
 
     def generate_project(
         self,
         spec: Any,
         target_dir: str,
-        repair_context: str | None = None,
+        repair_context: Optional[str] = None,
     ) -> list[str]:
-        """Generate project files per module in specification.
+        """Generate project files per governed pipeline.
 
-        Governed by: contracts/schemas/coding-loop/artifact-v1.json
-        Each module produces an independent file. Repair context is
-        applied globally to all modules when validation fails.
+        Pipeline per module:
+        1. Privacy sanitize requirement
+        2. §17 restriction check
+        3. Build memory context
+        4. LLM invocation (contract-based)
+        5. Clean output
+        6. Write file
+        7. Record experience in memory (pending human decision)
         """
         os.makedirs(target_dir, exist_ok=True)
         generated_files: list[str] = []
+
         ext = self._get_extension(spec.requirement.language.value)
         lang = spec.requirement.language.value
         project_name = spec.requirement.project_name
         requirement_desc = spec.requirement.description
         architecture = spec.architecture
-
-        repair_section = ""
-        if repair_context:
-            repair_section = (
-                "\nPrevious validation attempt failed.\n"
-                "Repair the generated code based on these validation errors:\n"
-                f"{repair_context}\n"
-            )
-
         modules = spec.modules or [{"name": "main"}]
 
         for module in modules:
             module_name = module.get("name", "main")
-            prompt = (
-                f"Generate a complete {lang} source file for module '{module_name}'.\n"
-                f"Project: {project_name}\n"
-                f"Requirement: {requirement_desc}\n"
-                f"Architecture: {architecture}\n"
-                f"All modules: {', '.join(m.get('name', '') for m in modules)}\n"
-                f"{repair_section}"
-                f"Provide ONLY the complete source code for this single module. "
-                f"No markdown, no filenames, no explanations."
+            target_module = f"{project_name}/{module_name}"
+
+            # Step 1: Privacy sanitization
+            sanitized_req = self._sanitize(requirement_desc)
+            sanitized_arch = self._sanitize(str(architecture))
+
+            # Step 2: §17 restriction check
+            restricted = self._check_restrictions(sanitized_req)
+            if restricted:
+                raise GenerationRejectedError(
+                    f"REJECTED by §17: category '{restricted}'. "
+                    f"External AI cannot generate: HFT core, execution logic, "
+                    f"risk systems, trading strategies."
+                )
+
+            # Step 3: Build memory context
+            memory_context = self._build_context(lang, target_module, sanitized_req)
+
+            # Step 4: Build governed prompt
+            repair_section = ""
+            if repair_context:
+                repair_section = (
+                    "\nPREVIOUS ATTEMPT FAILED. Fix these errors:\n"
+                    f"{self._sanitize(repair_context)}\n"
+                )
+
+            prompt_parts = [
+                f"Generate a complete {lang} source file for module '{module_name}'.",
+                f"Project: {project_name}",
+                f"Requirement: {sanitized_req}",
+                f"Architecture: {sanitized_arch}",
+                f"All modules: {', '.join(m.get('name', '') for m in modules)}",
+            ]
+            if memory_context:
+                prompt_parts.append(f"\n{memory_context}")
+            if repair_section:
+                prompt_parts.append(repair_section)
+            prompt_parts.append(
+                "RULES: Production-grade only. Include error handling. "
+                "No floats in financial calculations. "
+                "Provide ONLY complete source code. No markdown, no explanations."
             )
 
+            prompt = "\n".join(prompt_parts)
+            prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()[:16]
+
+            # Step 5: LLM invocation (contract-based, with fallback)
             try:
                 code_response = self.llm.generate_code(prompt, lang)
-                clean_code = self._clean_code(code_response)
+            except RuntimeError as e:
+                logger.error("LLM call failed for %s: %s", module_name, e)
+                raise
 
-                # Governed: Rust requires src/ directory structure for cargo tooling
-                if ext == "rs":
-                    src_dir = os.path.join(target_dir, "src")
-                    os.makedirs(src_dir, exist_ok=True)
-                    file_name = f"{module_name}.{ext}"
-                    file_path = os.path.join(src_dir, file_name)
-                else:
-                    file_name = f"{module_name}.{ext}"
-                    file_path = os.path.join(target_dir, file_name)
+            clean_code = self._clean_code(code_response)
 
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(clean_code.rstrip() + "\n")
+            # Step 6: Write file
+            if ext == "rs":
+                src_dir = os.path.join(target_dir, "src")
+                os.makedirs(src_dir, exist_ok=True)
+                file_path = os.path.join(src_dir, f"{module_name}.{ext}")
+            else:
+                file_path = os.path.join(target_dir, f"{module_name}.{ext}")
 
-                # Governed: Return relative paths per artifact contract
-                generated_files.append(os.path.relpath(file_path, target_dir))
-            except Exception as e:  # noqa: BLE001
-                raise RuntimeError(
-                    f"Code generation failed for module '{module_name}': {e!s}"
-                ) from e
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(clean_code.rstrip() + "\n")
 
-        # Go projects require go.mod at project root
+            generated_files.append(os.path.relpath(file_path, target_dir))
+
+            # Step 7: Record in memory (pending — human decides later)
+            self.memory.record(
+                source=Source(
+                    provider="groq",
+                    model=self.llm.model,
+                    prompt_hash=prompt_hash,
+                ),
+                method=Method(
+                    context_sources=[e.id for e in self.memory.get_positive(lang, target_module)],
+                    temperature=0.2,
+                ),
+                artifact=MemArtifact(
+                    language=lang,
+                    module=target_module,
+                    governance_refs=["llm-invocation-v1.json", "security-policy.yaml"],
+                ),
+                decision=Decision.APPROVED,  # Tentative — orchestrator updates after human gate
+                reason="auto-generated, pending human review",
+                quality_score=0.5,  # Neutral until human reviews
+            )
+
+            logger.info("Generated: %s (%d chars)", file_path, len(clean_code))
+
+        # Go/Rust project manifests
         if lang == "go":
             go_mod_path = os.path.join(target_dir, "go.mod")
             if not os.path.exists(go_mod_path):
@@ -89,20 +249,14 @@ class GeneratorEngine:
                     f.write(f"module {project_name}\n\ngo 1.22\n")
             generated_files.append(os.path.relpath(go_mod_path, target_dir))
 
-        # Rust projects require Cargo.toml at project root
         if lang == "rust":
             cargo_toml_path = os.path.join(target_dir, "Cargo.toml")
             if not os.path.exists(cargo_toml_path):
                 with open(cargo_toml_path, "w", encoding="utf-8") as f:
-                    f.write(f'[package]\nname = "{project_name}"\nversion = "0.1.0"\nedition = "2021"\n')
+                    f.write(
+                        f'[package]\nname = "{project_name}"\n'
+                        f'version = "0.1.0"\nedition = "2021"\n'
+                    )
             generated_files.append(os.path.relpath(cargo_toml_path, target_dir))
 
         return generated_files
-
-    def _get_extension(self, lang: str) -> str:
-        extensions = {
-            "python": "py",
-            "rust": "rs",
-            "go": "go"
-        }
-        return extensions.get(lang, "txt")

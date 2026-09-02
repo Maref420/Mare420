@@ -28,3 +28,15 @@ Schema version bumped: 1.0 → 1.1 with full migration metadata.
 - ADR-002: .bak Files Disposal (core_engine/market_data)
 - contracts/schemas/execution/order-v1.json (v1.1)
 - contracts/schemas/execution/circuit-breaker-v1.json (v1.1)
+
+## Addendum: Go Broker Migration (2026-09-01)
+
+The same deterministic migration was applied to the Go Message Broker:
+- `services/message_broker/internal/envelope/envelope.go`
+- `Quantity float64` → `QuantityScaled int64`
+- `PnL float64` → `PnLScaled int64`
+- `RiskScore 0-100` → `RiskScore 0-10000` (basis points)
+- Event types expanded from memory-only to full policy coverage
+
+Pre-migration backups (.bak.pre-event-activation.*, .bak.pre-int-fix.*)
+deleted as untracked ephemeral artifacts.
