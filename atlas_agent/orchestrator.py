@@ -228,6 +228,50 @@ class Orchestrator:
             return artifact
 
         # CONSTITUTION.md §2: Deployment Stage
+        # Deploy all generated files recorded in artifact.generated_files.
+        deployment_records = []
+        for generated_file in artifact.generated_files:
+            source_path = os.path.join(
+                requirement.target_folder,
+                generated_file.file_path,
+            )
+            target_path = source_path
+
+            deploy_record = self.deployer.deploy(
+                artifact_path=source_path,
+                target_path=target_path,
+                language=requirement.language.value,
+            )
+            deployment_records.append(deploy_record)
+
+            if deploy_record.status not in (
+                ApprovalStatus.DEPLOYED,
+            ):
+                artifact.status = deploy_record.status
+                self.governance.log_audit(
+                    "deployment_failed",
+                    "orchestrator",
+                    {
+                        "deployment_id": deploy_record.deployment_id,
+                        "status": deploy_record.status.value,
+                        "target_path": deploy_record.target_path,
+                        "reason": deploy_record.rollback_reason,
+                    },
+                )
+                return artifact
+
+        artifact.status = ApprovalStatus.DEPLOYED
+        self.governance.log_audit(
+            "deployment_complete",
+            "orchestrator",
+            {
+                "deployment_count": len(deployment_records),
+                "deployment_ids": [r.deployment_id for r in deployment_records],
+                "status": artifact.status.value,
+            },
+        )
+
+        # CONSTITUTION.md §2: Deployment Stage
         target_file = os.path.join(
             requirement.target_folder,
             artifact.file_path,
