@@ -216,6 +216,11 @@ class ValidatorEngine:
                     if not os.path.isdir(os.path.abspath(file_path))
                     else os.path.abspath(file_path)
                 )
+                # Skip go vet if no go.mod — produces false positives
+                go_mod_path = os.path.join(go_project_dir, "go.mod")
+                if not os.path.exists(go_mod_path):
+                    logger.info("Skipping go vet: no go.mod in %s", go_project_dir)
+                    return findings
                 result = subprocess.run(
                     ["go", "vet", "./..."],
                     cwd=go_project_dir,
@@ -225,13 +230,24 @@ class ValidatorEngine:
                     check=False,
                 )
                 if result.returncode != 0:
-                    findings.append(SecurityFinding(
-                        severity=SecurityLevel.HIGH,
-                        category="go_security_validation",
-                        message="Go vet reported issues",
-                        file_path=display_path,
-                        suggestion=result.stderr.strip() or "Review go vet output",
-                    ))
+                    # Filter out dependency resolution errors (not code issues)
+                    stderr_lines = (result.stderr or "").splitlines()
+                    real_errors = [
+                        line for line in stderr_lines
+                        if "no required module" not in line
+                        and "cannot find package" not in line
+                        and "build constraints exclude" not in line
+                        and "missing go.mod" not in line
+                        and line.strip() != ""
+                    ]
+                    if real_errors:
+                        findings.append(SecurityFinding(
+                            severity=SecurityLevel.HIGH,
+                            category="go_security_validation",
+                            message="Go vet reported issues",
+                            file_path=display_path,
+                            suggestion="\n".join(real_errors[:5]) or "Review go vet output",
+                        ))
                 return findings
 
             if language == "rust":
