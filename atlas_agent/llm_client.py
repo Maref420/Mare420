@@ -35,8 +35,8 @@ class ResourceConfig:
     """Hard limits to protect 6GB RAM / 6 CPU VPS."""
     max_concurrent_requests: int = 2
     request_timeout_seconds: int = 30
-    max_response_tokens: int = 2048
-    rate_limit_rpm: int = 10
+    max_response_tokens: int = 4096
+    rate_limit_rpm: int = 20
     circuit_breaker_threshold: int = 5
     circuit_breaker_reset_seconds: int = 60
 
@@ -101,7 +101,7 @@ class LLMClient:
         self.client = Groq(
             api_key=api_key,
             timeout=self.config.request_timeout_seconds,
-            max_retries=2,
+            max_retries=4,
         )
         self.model = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
         self.fallback_model = os.getenv("LLM_FALLBACK_MODEL", "openai/gpt-oss-20b")
@@ -124,17 +124,37 @@ class LLMClient:
 
 
     def _call_api(self, prompt: str, model: str, temperature: float) -> str:
-        """Single API call with typed exception handling."""
-        response = self.client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temperature,
-            max_tokens=self.config.max_response_tokens,
-        )
-        content = response.choices[0].message.content
-        if content is None or len(content.strip()) == 0:
-            raise RuntimeError(f"Model {model} returned empty content")
-        return content
+        """Single API call with exponential backoff on 429."""
+        import random
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            try:
+                response = self.client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=self.config.max_response_tokens,
+                )
+                content = response.choices[0].message.content
+                if content is None or len(content.strip()) == 0:
+                    raise RuntimeError(f"Model {model} returned empty content")
+                return content
+            except RateLimitError as e:
+                if attempt < max_attempts - 1:
+                    wait = min(2 ** attempt + random.uniform(0, 1), 30)
+                    logger.warning("Rate limited on %s (attempt %d/%d), waiting %.1fs",
+                                  model, attempt + 1, max_attempts, wait)
+                    time.sleep(wait)
+                else:
+                    raise
+            except (APITimeoutError, APIConnectionError) as e:
+                if attempt < max_attempts - 1:
+                    wait = min(2 ** attempt + random.uniform(0, 1), 15)
+                    logger.warning("API error on %s (attempt %d/%d), waiting %.1fs: %s",
+                                  model, attempt + 1, max_attempts, wait, e)
+                    time.sleep(wait)
+                else:
+                    raise
 
     def generate_code(self, requirement: str, language: str) -> str:
         """Generate code with cache, fallback, and full resource protection."""
