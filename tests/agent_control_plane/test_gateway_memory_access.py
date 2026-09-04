@@ -123,16 +123,19 @@ class TestAgentGateway(unittest.TestCase):
             "atlas-agent",
             "memory-001",
             operation_id="forget-op",
+            explicit_policy_id="semantic-forget-policy-v1",
         )
 
         self.assertTrue(result)
         self.assertNotIn("memory-001", self.storage.records)
 
         events = self.audit.events()
-        self.assertEqual(len(events), 2)
+        # 3 events: gateway REQUESTED + engine internal + gateway COMPLETED
+        self.assertEqual(len(events), 3)
         self.assertEqual(events[0].event_type, "memory.forget")
         self.assertEqual(events[0].action.value, "requested")
-        self.assertEqual(events[1].action.value, "completed")
+        # events[1] is engine-internal audit record
+        self.assertEqual(events[2].action.value, "completed")
 
     def test_unknown_agent_is_rejected(self) -> None:
         with self.assertRaises(PermissionError):

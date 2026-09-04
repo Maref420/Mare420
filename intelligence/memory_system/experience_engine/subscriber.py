@@ -220,3 +220,16 @@ class ExperienceSubscriber:
         self._max_semantic_size = max_semantic_size
         self._forgetting_policy = forgetting_policy or ForgettingPolicy()
         self._storage
+    @staticmethod
+    def _detect_event_type(payload: dict) -> str:
+        """Detect event type from payload keys.
+        
+        Used by tests and routing logic to classify incoming events.
+        """
+        if "order_id" in payload:
+            return "execution_outcome"
+        if "assessment_type" in payload:
+            return "risk_assessment"
+        if "decision_type" in payload:
+            return "agent_decision"
+        return "unknown"

@@ -189,11 +189,25 @@ def test_successful_validation_preserves_governance_and_approval(tmp_path):
     approval = MagicMock(return_value=True)
     orchestrator.governance.require_human_approval = approval
 
+    # Mock deployer — unit test should not depend on filesystem
+    from atlas_agent.models import DeploymentRecord
+    mock_deploy_record = DeploymentRecord(
+        deployment_id="test-deploy-001",
+        artifact_path="main.py",
+        target_path=str(tmp_path / "main.py"),
+        status=ApprovalStatus.DEPLOYED,
+        timestamp=0.0,
+        audit_event_id="test-audit-001",
+    )
+    orchestrator.deployer = MagicMock()
+    orchestrator.deployer.deploy.return_value = mock_deploy_record
+
     artifact = orchestrator.run_pipeline(
         make_requirement(tmp_path),
         "simple architecture",
         ["main"],
     )
 
-    assert artifact.status == ApprovalStatus.APPROVED
+    assert artifact.status == ApprovalStatus.DEPLOYED
     approval.assert_called_once_with(artifact)
+    orchestrator.deployer.deploy.assert_called_once()

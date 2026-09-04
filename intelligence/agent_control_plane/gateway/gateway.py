@@ -203,7 +203,18 @@ class AgentGateway:
         memory_id: str,
         *,
         operation_id: str,
+        explicit_policy_id: str | None = None,
     ) -> bool:
+        """Forget a memory record with lifecycle policy enforcement.
+
+        Args:
+            agent_id: Authenticated agent requesting the forget.
+            memory_id: Target memory record identifier.
+            operation_id: Unique operation trace ID.
+            explicit_policy_id: Required for SEMANTIC/PROCEDURAL memory types.
+                Per forgetting engine policy, these types require explicit
+                policy authorization before deletion is permitted.
+        """
         self._authorize(
             agent_id,
             Capability.MEMORY_FORGET,
@@ -212,8 +223,29 @@ class AgentGateway:
             resource=memory_id,
         )
 
-        return self._forgetting.forget(
+        self._audit(
+            event_type=AuditEventType.MEMORY_FORGET,
+            action=AuditAction.REQUESTED,
+            result=AuditResult.SUCCESS,
+            operation_id=operation_id,
+            agent_id=agent_id,
+            resource=memory_id,
+        )
+
+        result = self._forgetting.forget(
             memory_id,
             operation_id=operation_id,
             agent_id=agent_id,
+            explicit_policy_id=explicit_policy_id,
         )
+
+        self._audit(
+            event_type=AuditEventType.MEMORY_FORGET,
+            action=AuditAction.COMPLETED,
+            result=AuditResult.SUCCESS if result else AuditResult.FAILURE,
+            operation_id=operation_id,
+            agent_id=agent_id,
+            resource=memory_id,
+        )
+
+        return result

@@ -14,7 +14,7 @@ import pytest
 from intelligence.agent_control_plane.audit.memory_sink import InMemoryAuditSink
 from intelligence.agent_control_plane.audit.models import AuditResult
 from intelligence.memory_system.experience_engine.engine import ExperienceEngine
-from intelligence.memory_system.experience_engine.subscriber import MemoryEventSubscriber
+from intelligence.memory_system.experience_engine.subscriber import ExperienceSubscriber as MemoryEventSubscriber
 from intelligence.memory_system.memory_kernel.kernel import MemoryKernel
 from intelligence.memory_system.models.memory_record import MemoryType, ValidationStatus
 from intelligence.memory_system.storage.interface import MemoryStorage

@@ -245,5 +245,4 @@ class DeploymentRecord(BaseModel):
     audit_event_id: str = Field(min_length=1)
     rollback_reason: Optional[str] = None
 
-    class Config:
-        frozen = True
+    model_config = ConfigDict(frozen=True)
