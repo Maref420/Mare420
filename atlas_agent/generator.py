@@ -10,6 +10,9 @@ This module does NOT send raw prompts to LLM. Every invocation passes through:
 4. Contract-validated LLM call (with fallback)
 """
 
+__all__ = ['GeneratorEngine']
+
+
 import hashlib
 import logging
 import os
@@ -23,24 +26,8 @@ from .memory.experience import Source, Method, Artifact as MemArtifact
 logger = logging.getLogger(__name__)
 
 # CONSTITUTION.md §17 — Hardcoded for defense-in-depth
-RESTRICTED_PATTERNS = {
-    "hft_core": [
-        "high-frequency", "hft core", "millisecond execution",
-        "nanosecond timing", "latency-critical execution",
-    ],
-    "execution_logic": [
-        "order execution", "trade execution", "execution engine",
-        "exchange order placement", "order routing",
-    ],
-    "risk_systems": [
-        "risk engine", "risk management system", "position limits calculation",
-        "exposure control", "margin calculation",
-    ],
-    "trading_strategies": [
-        "trading strategy", "strategy logic", "signal generation",
-        "backtest engine", "alpha generation",
-    ],
-}
+# §17 restriction check delegated to LLMClient → RestrictionGuard
+# Rules: contracts/schemas/ai/restriction-rules-v1.json
 
 # Privacy patterns — data that must NEVER leave VPS
 SENSITIVE_PATTERNS = [
@@ -73,14 +60,7 @@ class GeneratorEngine:
             sanitized = re.sub(pattern, "[REDACTED]", sanitized)
         return sanitized
 
-    def _check_restrictions(self, requirement: str) -> Optional[str]:
-        """Enforce CONSTITUTION.md §17 — reject prohibited categories."""
-        req_lower = requirement.lower()
-        for category, patterns in RESTRICTED_PATTERNS.items():
-            for pattern in patterns:
-                if pattern in req_lower:
-                    return category
-        return None
+    # §17 check handled by LLMClient → RestrictionGuard
 
     def _build_context(self, language: str, module: str, requirement: str) -> str:
         """Build intelligent context from learning memory."""
@@ -175,15 +155,8 @@ class GeneratorEngine:
             sanitized_req = self._sanitize(requirement_desc)
             sanitized_arch = self._sanitize(str(architecture))
 
-            # Step 2: §17 restriction check
-            restricted = self._check_restrictions(sanitized_req)
-            if restricted:
-                raise GenerationRejectedError(
-                    f"REJECTED by §17: category '{restricted}'. "
-                    f"External AI cannot generate: HFT core, execution logic, "
-                    f"risk systems, trading strategies."
-                )
-
+            # §17 check performed by LLMClient → RestrictionGuard before calling generator
+            # Rules: contracts/schemas/ai/restriction-rules-v1.json
             # Step 3: Build memory context
             memory_context = self._build_context(lang, target_module, sanitized_req)
 

@@ -2,6 +2,9 @@
 Governance Engine for ATLAS AI Agent
 Enforces ATLAS AI Governance Rules
 """
+
+__all__ = ['GovernanceEngine']
+
 import os
 import re
 from typing import Any

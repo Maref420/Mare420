@@ -11,6 +11,9 @@ Design principles:
 - Every decision is auditable
 """
 
+__all__ = ['RestrictionGuard', 'GuardDecision', 'RequestIntent', 'RestrictionCategory']
+
+
 import hashlib
 import logging
 import re
@@ -51,64 +54,44 @@ class GuardDecision:
 
 # ============================================================
 # Layer 1: Intent Classification
+# Rules loaded from contract: contracts/schemas/ai/restriction-rules-v1.json
+# NEVER define patterns inline. Single source of truth = JSON contract.
 # ============================================================
+import json
+from pathlib import Path
 
-# Scaffold indicators — must have AT LEAST 2 of these to classify as SCAFFOLD
-SCAFFOLD_INDICATORS = [
-    r'\bscaffold\b',
-    r'\bstub\b',
-    r'\btrait\s+definition\b',
-    r'\bstruct\s+definition\b',
-    r'\benum\s+definition\b',
-    r'todo!\(\)',
-    r'unimplemented!\(\)',
-    r'\bno\s+implementation\b',
-    r'\bwithout\s+implementation\b',
-    r'\bdo\s+not\s+implement\b',
-    r'\bforbidden\s+per\b',
-    r'\bonly\s+(the\s+)?structure\b',
-    r'\bonly\s+(the\s+)?definitions?\b',
-    r'\bplaceholder\b',
-]
+_CONTRACT_PATH = Path(__file__).resolve().parent.parent / "contracts" / "schemas" / "ai" / "restriction-rules-v1.json"
 
-# Implementation indicators — ANY of these means IMPLEMENTATION
-IMPLEMENTATION_INDICATORS = [
-    r'\bimplement\s+the\b',
-    r'\bwrite\s+the\s+logic\b',
-    r'\bbusiness\s+logic\s+for\b',
-    r'\balgorithm\s+for\b',
-    r'\bcalculate\s+the\b',
-    r'\bfn\s+assess\s*\(',
-    r'\bfn\s+execute\s*\(',
-    r'\bfn\s+evaluate\s*\(',
-    r'\bposition\s+sizing\s+logic\b',
-    r'\brisk\s+assessment\s+logic\b',
-    r'\border\s+routing\s+logic\b',
-    r'\bsignal\s+generation\s+logic\b',
-]
+def _load_rules() -> dict:
+    """Load §17 rules from JSON contract file."""
+    try:
+        with open(_CONTRACT_PATH) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logger.error("§17 contract not found at %s — using empty rules", _CONTRACT_PATH)
+        return {"categories": {}, "intent_classification": {}}
 
-# Category detection patterns (word boundary aware)
-CATEGORY_PATTERNS = {
-    RestrictionCategory.HFT_CORE: [
-        r'\bhigh[\s-]?frequency\b', r'\bhft\b', r'\bnanosecond\s*timing\b',
-        r'\blatency[\s-]?critical\s*execution\b',
-    ],
-    RestrictionCategory.EXECUTION_LOGIC: [
-        r'\border[\s_]*execution\b', r'\btrade[\s_]*execution\b',
-        r'\bexecution[\s_]*engine\b', r'\border[\s_]*routing\b',
-        r'\bexchange[\s_]*order\b', r'\bordermanager\b',
-    ],
-    RestrictionCategory.RISK_SYSTEMS: [
-        r'\brisk[\s_]*engine\b', r'\brisk[\s_]*management\b',
-        r'\bposition[\s_]*limit', r'\bexposure[\s_]*control\b',
-        r'\bmargin[\s_]*calculation\b', r'\brisk[\s_]*assessment\b',
-    ],
-    RestrictionCategory.TRADING_STRATEGIES: [
-        r'\btrading[\s_]*strateg', r'\bstrategy[\s_]*logic\b',
-        r'\bsignal[\s_]*generation\b', r'\bbacktest[\s_]*engine\b',
-        r'\balpha[\s_]*generation\b', r'\bstrategysignal\b',
-    ],
+_RULES = _load_rules()
+
+SCAFFOLD_INDICATORS: list[str] = _RULES.get("intent_classification", {}).get("scaffold_indicators", [])
+IMPLEMENTATION_INDICATORS: list[str] = _RULES.get("intent_classification", {}).get("implementation_indicators", [])
+
+# Build CATEGORY_PATTERNS from contract, mapping string keys to RestrictionCategory enums
+_CATEGORY_MAP = {
+    "hft_core": RestrictionCategory.HFT_CORE,
+    "execution_logic": RestrictionCategory.EXECUTION_LOGIC,
+    "risk_systems": RestrictionCategory.RISK_SYSTEMS,
+    "trading_strategies": RestrictionCategory.TRADING_STRATEGIES,
 }
+
+CATEGORY_PATTERNS: dict[RestrictionCategory, list[str]] = {}
+for cat_key, cat_data in _RULES.get("categories", {}).items():
+    enum_val = _CATEGORY_MAP.get(cat_key)
+    if enum_val:
+        CATEGORY_PATTERNS[enum_val] = cat_data.get("patterns", [])
+
+logger.info("§17 rules loaded from contract: %d categories, %d scaffold indicators, %d impl indicators",
+           len(CATEGORY_PATTERNS), len(SCAFFOLD_INDICATORS), len(IMPLEMENTATION_INDICATORS))
 
 
 def classify_intent(prompt: str) -> RequestIntent:

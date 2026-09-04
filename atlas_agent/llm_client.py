@@ -7,6 +7,9 @@ Resource budget (6GB RAM / 6 CPU VPS):
 - RAM: <20MB | CPU: I/O bound | HDD: <1MB (cache file)
 """
 
+__all__ = ['LLMClient', 'ResourceConfig', 'CircuitBreaker', 'ProviderStatus']
+
+
 import os
 import time
 import logging
@@ -78,12 +81,8 @@ class CircuitBreaker:
 class LLMClient:
     """Production-grade LLM client with cache, fallback, and resource protection."""
 
-    RESTRICTED_CATEGORIES = {
-        "hft_core": ["high-frequency", "hft core", "millisecond execution", "nanosecond timing"],
-        "execution_logic": ["order execution", "trade execution", "execution engine", "exchange order"],
-        "risk_systems": ["risk engine", "risk management", "position limits", "exposure control"],
-        "trading_strategies": ["trading strategy", "strategy logic", "signal generation", "backtest"],
-    }
+    # §17 rules: contracts/schemas/ai/restriction-rules-v1.json
+    # Enforcement: RestrictionGuard (single source of truth)
 
     def __init__(self, config: Optional[ResourceConfig] = None) -> None:
         self.config = config or ResourceConfig()

@@ -12,15 +12,17 @@ Improvements over v1:
 Governed by: contracts/schemas/ai/llm-invocation-v1.json
 """
 
-import hashlib
+__all__ = ['SelfCorrectingLoop', 'QualityScore', 'LoopMetrics']
+
+
 import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
-from .code_patcher import CodePatcher, PatchTarget
+from .code_patcher import CodePatcher
 
 
 class RepairStrategy(Enum):
