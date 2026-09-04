@@ -230,10 +230,10 @@ class Orchestrator:
         # CONSTITUTION.md §2: Deployment Stage
         # Deploy all generated files recorded in artifact.generated_files.
         deployment_records = []
-        for generated_file in artifact.generated_files:
+        for file_rel_path in artifact.generated_files:
             source_path = os.path.join(
                 requirement.target_folder,
-                generated_file.file_path,
+                file_rel_path,
             )
             target_path = source_path
 
