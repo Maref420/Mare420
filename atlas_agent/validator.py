@@ -3,6 +3,9 @@ Validator Engine for ATLAS AI Agent
 Validates generated code for syntax, security, and policy compliance
 """
 import ast
+import logging
+
+logger = logging.getLogger(__name__)
 import os
 import subprocess
 
