@@ -30,6 +30,9 @@ class ApprovalStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    DEPLOYED = "deployed"
+    DEPLOY_FAILED = "deploy_failed"
+    ROLLED_BACK = "rolled_back"
 
 class CodingLoopStatus(StrEnum):
     IN_PROGRESS = "in_progress"
