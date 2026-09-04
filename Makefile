@@ -217,3 +217,9 @@ cross-validate-ipc: generate-golden-fixtures
 	@echo "=== Rust IPC contract tests ==="
 	@cd core_engine/market_data && cargo test --test ipc_contract_test -- --nocapture
 	@echo "=== Cross-validation PASSED ==="
+
+# --- Governance Gates ---
+validate-market-data:
+	@echo "🔍 [2/4] Validating against tick-data-v1.json schema..."
+	@cd core_engine/market_data && cargo test --test contract_validation -- --nocapture
+	@echo "✅ Contract Validation Passed"

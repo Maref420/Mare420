@@ -114,3 +114,8 @@ ZERO TOLERANCE: Every invalid frame produces observable evidence. No silent path
 | Date | ADR | Change | Author |
 |------|-----|--------|--------|
 | 2026-09-01 | ADR-007 | Lifecycle stages VALIDATE + NORMALIZE defined, PluggableValidator interface specified | Atlas-AI Governance |
+
+## Contract Validation Status
+- ✅ `tick-data-v1.json` enforced at compile & runtime
+- ✅ `make validate-market-data` gate active
+- ✅ Zero silent fallback / Zero panic propagation
