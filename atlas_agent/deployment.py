@@ -74,8 +74,13 @@ class DeploymentEngine:
                 os.makedirs(target_dir, exist_ok=True)
 
             # Step 4: Install artifact
-            shutil.copy2(artifact_path, target_path)
-            logger.info("Installed: %s", target_path)
+            src_abs = os.path.abspath(artifact_path)
+            dst_abs = os.path.abspath(target_path)
+            if src_abs == dst_abs:
+                logger.info("Source and target are same file — in-place deploy")
+            else:
+                shutil.copy2(artifact_path, target_path)
+                logger.info("Installed: %s → %s", artifact_path, target_path)
 
             # Step 5: Post-deployment validation
             validation = self._validate_deployment(target_path, language)
