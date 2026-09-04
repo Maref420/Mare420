@@ -53,6 +53,16 @@ class LearningMemory:
         logger.info("Loaded: %d experiences, %d anti-patterns",
                     len(self._index), len(self._anti_patterns))
 
+    @property
+    def experiences(self) -> list:
+        """Public read-only access to all experiences (memory contract compliant)."""
+        return list(self._index.values())
+
+    @property
+    def anti_patterns(self) -> set:
+        """Public read-only access to anti-patterns (memory contract compliant)."""
+        return set(self._anti_patterns)
+
     def _prune(self) -> None:
         if not self.path.exists():
             return
