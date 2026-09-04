@@ -14,6 +14,7 @@ from .generator import GeneratorEngine
 from .governance import GovernanceEngine
 from .models import ApprovalStatus, Artifact, Requirement, SecurityLevel, Specification
 from .validator import ValidatorEngine
+from .deployment import DeploymentEngine
 from .self_correcting_loop import SelfCorrectingLoop, QualityScore
 from .memory import LearningMemory
 
@@ -25,6 +26,7 @@ class Orchestrator:
 
     def __init__(self) -> None:
         self.governance = GovernanceEngine()
+        self.deployer = DeploymentEngine(governance_engine=self.governance)
         self.generator = GeneratorEngine()
         self.validator = ValidatorEngine()
         self.memory = LearningMemory()
@@ -224,6 +226,27 @@ class Orchestrator:
             )
             artifact.status = ApprovalStatus.REJECTED
             return artifact
+
+        # CONSTITUTION.md §2: Deployment Stage
+        target_file = os.path.join(
+            requirement.target_folder,
+            artifact.file_path,
+        )
+        deploy_record = self.deployer.deploy(
+            artifact_path=target_file,
+            target_path=target_file,
+            language=requirement.language.value,
+        )
+        artifact.status = deploy_record.status
+        self.governance.log_audit(
+            "deployment_complete",
+            "orchestrator",
+            {
+                "deployment_id": deploy_record.deployment_id,
+                "status": deploy_record.status.value,
+                "target_path": deploy_record.target_path,
+            },
+        )
 
         artifact.status = ApprovalStatus.APPROVED
         self.governance.log_audit(

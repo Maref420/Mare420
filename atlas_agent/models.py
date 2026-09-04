@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 Data Models for ATLAS AI Agent
 """
 
-__all__ = ['Requirement', 'Language', 'SecurityLevel', 'ArtifactStatus', 'GeneratedArtifact']
+__all__ = ['Requirement', 'Language', 'SecurityLevel', 'ArtifactStatus', 'GeneratedArtifact', 'ApprovalStatus', 'DeploymentRecord']
 
 from datetime import datetime
 from enum import StrEnum
@@ -229,3 +229,18 @@ class EngineMessage(BaseModel):
                 validation_status="validated",
             ),
         )
+
+class DeploymentRecord(BaseModel):
+    """Immutable deployment record per CONSTITUTION.md §2 and deployment-record-v1.json."""
+    deployment_id: str = Field(min_length=1)
+    artifact_path: str = Field(min_length=1)
+    target_path: str = Field(min_length=1)
+    status: ApprovalStatus
+    timestamp: float
+    backup_path: Optional[str] = None
+    post_deploy_validation: dict = Field(default_factory=dict)
+    audit_event_id: str = Field(min_length=1)
+    rollback_reason: Optional[str] = None
+
+    class Config:
+        frozen = True
