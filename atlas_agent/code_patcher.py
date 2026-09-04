@@ -16,9 +16,11 @@ Benefits:
 Supported languages: Python (AST-based), Rust/Go (regex-based)
 """
 
+__all__ = ['CodePatcher', 'PatchTarget', 'PatchResult']
+
+
 import ast
 import logging
-import re
 from dataclasses import dataclass
 from typing import Optional
 

@@ -10,10 +10,12 @@ Design:
 Impact: Repeated requests go from 3s → 0s.
 """
 
+__all__ = ['LLMCache']
+
+
 import hashlib
 import json
 import logging
-import os
 import time
 import threading
 from pathlib import Path
