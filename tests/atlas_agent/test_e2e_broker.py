@@ -1,3 +1,4 @@
+import pytest
 """End-to-End Integration Test: Python → Go Broker.
 Verifies that Python can create an Order, wrap it in an EngineMessage,
 and successfully publish to the Go Message Broker /publish endpoint.
@@ -12,6 +13,20 @@ from atlas_agent.models import Order, OrderSide, OrderType, EngineMessage
 
 BROKER_URL = "http://localhost:8090/publish"
 
+
+def _broker_available() -> bool:
+    """Check if message broker is reachable."""
+    try:
+        import urllib.request
+        urllib.request.urlopen("http://localhost:8090/publish", timeout=1)
+        return True
+    except Exception:
+        return False
+
+@pytest.mark.skipif(
+    not _broker_available(),
+    reason="Broker not available at localhost:8090",
+)
 def test_e2e_publish_order():
     order = Order(
         symbol="BTCUSDT",
