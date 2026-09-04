@@ -271,32 +271,14 @@ class Orchestrator:
             },
         )
 
-        # CONSTITUTION.md §2: Deployment Stage
-        target_file = os.path.join(
-            requirement.target_folder,
-            artifact.file_path,
-        )
-        deploy_record = self.deployer.deploy(
-            artifact_path=target_file,
-            target_path=target_file,
-            language=requirement.language.value,
-        )
-        artifact.status = deploy_record.status
-        self.governance.log_audit(
-            "deployment_complete",
-            "orchestrator",
-            {
-                "deployment_id": deploy_record.deployment_id,
-                "status": deploy_record.status.value,
-                "target_path": deploy_record.target_path,
-            },
-        )
-
-        artifact.status = ApprovalStatus.APPROVED
         self.governance.log_audit(
             "pipeline_success",
             "orchestrator",
-            {"artifact": artifact.model_dump_json()},
+            {
+                "status": artifact.status.value,
+                "generated_files": artifact.generated_files,
+                "deployment_count": len(deployment_records),
+            },
         )
 
         return artifact
