@@ -40,3 +40,4 @@ output/*/*.exe
 *.bak.*
 .cursorrules
 ws-ingestion
+atlas_agent/llm_cache.json
