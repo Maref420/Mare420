@@ -49,7 +49,7 @@ STRATEGY_SIGNAL_EXECUTED to AuditEventType enum. Payload: original contract JSON
 
 - <- core_engine/strategy (raw JSON)
 - <- core_engine/execution (outcome)
-- <- risk/risk_engine (assessment)
+- <- docs/task_specs/risk (assessment)
 - -> Supabase audit_events
 
 ## Acceptance Criteria

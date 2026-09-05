@@ -49,7 +49,7 @@ risk assessment result. Entry point: experience_engine/subscriber.py.
 ## Dependencies
 
 - <- core_engine/execution (Outcome Event)
-- <- risk/risk_engine (Assessment)
+- <- docs/task_specs/risk (Assessment)
 - <- core_engine/strategy (Original Signal)
 - -> Storage Backend
 - -> Retrieval Engine

@@ -51,7 +51,7 @@ Optional fields: quantity_scaled, price_scaled, stop_loss_scaled, take_profit_sc
 ## Dependencies
 
 - <- core_engine/strategy (DomainEvent)
-- <- risk/risk_engine (Approval)
+- <- docs/task_specs/risk (Approval)
 - -> services/message_broker (Execution Outcome)
 - -> intelligence/memory_system (Experience)
 
