@@ -1,0 +1,113 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: ['*']
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-ci:
+    name: Rust (core_engine + specgen)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Check core_engine/execution
+        working-directory: core_engine/execution
+        run: cargo check && cargo test && cargo clippy -- -D warnings
+
+      - name: Check core_engine/market_data
+        working-directory: core_engine/market_data
+        run: cargo check && cargo test && cargo clippy -- -D warnings
+
+      - name: Check core_engine/risk
+        working-directory: core_engine/risk
+        run: cargo check && cargo test && cargo clippy -- -D warnings
+
+      - name: Check core_engine/strategy
+        working-directory: core_engine/strategy
+        run: cargo check && cargo test && cargo clippy -- -D warnings
+
+      - name: Check tools/specgen
+        working-directory: tools/specgen
+        run: cargo check && cargo test && cargo clippy -- -D warnings
+
+  go-ci:
+    name: Go (services)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: |
+            services/ingestion/go.sum
+            services/message_broker/go.sum
+
+      - name: Format check (ingestion)
+        working-directory: services/ingestion
+        run: |
+          FILES=$(gofmt -l .)
+          if [ -n "$FILES" ]; then echo "Unformatted:"; echo "$FILES"; exit 1; fi
+
+      - name: Vet + Test (ingestion)
+        working-directory: services/ingestion
+        run: go vet ./... && go test -race -v ./...
+
+      - name: Format check (message_broker)
+        working-directory: services/message_broker
+        run: |
+          FILES=$(gofmt -l .)
+          if [ -n "$FILES" ]; then echo "Unformatted:"; echo "$FILES"; exit 1; fi
+
+      - name: Vet + Test (message_broker)
+        working-directory: services/message_broker
+        run: go vet ./... && go test -race -v ./...
+
+  python-ci:
+    name: Python (intelligence + atlas_agent)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]" 2>/dev/null || pip install -e .
+          pip install ruff pytest
+
+      - name: Lint (ruff)
+        run: ruff check intelligence/ atlas_agent/ tests/
+
+      - name: Test (pytest)
+        run: pytest tests/ -v --tb=short
