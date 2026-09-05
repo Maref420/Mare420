@@ -1,4 +1,4 @@
-package messagebroker
+package main
 
 import (
 	"context"
