@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "type": "ai-sdk-contract",
+  "required": [
+    "model",
+    "input",
+    "output",
+    "metadata"
+  ],
+  "validation": {
+    "model_traceability_required": true,
+    "data_classification_required": true
+  }
+}

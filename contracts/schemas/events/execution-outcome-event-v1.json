@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ExecutionOutcomeEventV1",
+  "description": "Event emitted after order execution. Governed by order-v1.1. All numeric fields use scaled integers per ADR-2026-08-30-004.",
+  "type": "object",
+  "required": ["event_id", "order_id", "symbol", "side", "filled_quantity_scaled", "average_price_scaled", "status", "timestamp_ns", "exchange_id", "agent_id"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "order_id": { "type": "string", "format": "uuid" },
+    "symbol": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "side": { "type": "string", "enum": ["buy", "sell"] },
+    "filled_quantity_scaled": { "type": "integer", "minimum": 0 },
+    "average_price_scaled": { "type": "integer", "minimum": 1 },
+    "status": { "type": "string", "enum": ["filled", "partially_filled", "rejected", "cancelled"] },
+    "timestamp_ns": { "type": "integer", "minimum": 1 },
+    "exchange_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "agent_id": { "type": "string", "minLength": 1 },
+    "rejection_reason": { "type": ["string", "null"] },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    }
+  }
+}

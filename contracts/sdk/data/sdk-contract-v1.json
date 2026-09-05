@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "type": "data-sdk-contract",
+  "required": [
+    "query",
+    "result",
+    "metadata"
+  ],
+  "validation": {
+    "schema_required": true,
+    "access_control_required": true
+  }
+}

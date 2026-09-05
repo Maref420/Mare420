@@ -1,0 +1,29 @@
+version: "1.0"
+
+ownership:
+  type: module
+  ownership_required: true
+  cross_domain_modification: prohibited
+  unauthorized_changes: prohibited
+
+# --- Added 2026-08-30: Market Data Module Ownership ---
+- module: market_data
+  owner: core_engine_team
+  language: rust
+  contracts:
+    - tick-data-v1
+  policy_ref: governance/policies/rust-policy.yaml
+  last_updated: "2026-08-30"
+  change_reason: "P0 Market Data Contract approval per ADR-2026-08-30-001"
+
+# --- Added 2026-08-30: Strategy Engine Module Ownership ---
+- module: strategy_engine
+  owner: core_engine_team
+  language: rust
+  path: core_engine/strategy/
+  contracts:
+    - strategy-signal-event-v1
+  policy_ref: governance/policies/rust-policy.yaml
+  status: parity_verified
+  last_updated: "2026-08-31"
+  change_reason: "Cross-language parity verified. 10/10 parity + 17/17 Rust + 11/11 Python tests green."

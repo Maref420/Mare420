@@ -1,0 +1,13 @@
+repos:
+  - repo: local
+    hooks:
+      - id: no-large-files
+        name: Block files over 1MB
+        entry: bash -c 'find . -path ./.git -prune -o -type f -size +1M -print | head -5 | grep -q . && echo "BLOCKED: files over 1MB" && exit 1 || exit 0'
+        language: system
+        always_run: true
+      - id: no-target-dir
+        name: Block Rust target directory
+        entry: bash -c 'git diff --cached --name-only | grep -q "target/" && echo "BLOCKED: target/ staged" && exit 1 || exit 0'
+        language: system
+        always_run: true

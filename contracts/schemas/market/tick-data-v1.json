@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TickDataV1",
+  "description": "Production-grade market tick data contract. Deterministic scaled integers only. Compliant with rust-policy.yaml v1.0.",
+  "type": "object",
+  "required": ["symbol", "price_scaled", "volume_scaled", "timestamp_ns", "exchange_id"],
+  "additionalProperties": false,
+  "properties": {
+    "symbol": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "price_scaled": {
+      "type": "integer",
+      "description": "Price in smallest currency unit (e.g., 1 BTC = 100_000_000 satoshis). Scale factor per exchange defined in configs/exchanges/.",
+      "minimum": 1
+    },
+    "volume_scaled": {
+      "type": "integer",
+      "description": "Volume in smallest asset unit. Scale factor per exchange defined in configs/exchanges/.",
+      "minimum": 0
+    },
+    "timestamp_ns": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Nanoseconds since UNIX epoch. Must be monotonic within same symbol stream."
+    },
+    "exchange_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "bid_price_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "ask_price_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "trade_id": { "type": ["string", "null"], "maxLength": 128 },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    }
+  }
+}

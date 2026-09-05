@@ -1,0 +1,51 @@
+{
+  "version": "1.1",
+  "type": "ffi-contract",
+  "purpose": "Define the Cross-Language Boundary between Python, Rust, and Go in Atlas AI SDK. Covers both FFI and Serialization-based interfaces.",
+  "supported_languages": ["python", "rust", "go"],
+  "serialization_format": "json",
+  "required_interfaces": [
+    {
+      "name": "MemoryKernel",
+      "operations": ["store", "retrieve", "validate", "consolidate", "forget"],
+      "governed_by": "contracts/schemas/memory/memory-contract-v1.json",
+      "transport": "serialization"
+    },
+    {
+      "name": "AuditSink",
+      "operations": ["record"],
+      "governed_by": "contracts/schemas/audit/audit-contract-v1.json",
+      "transport": "serialization"
+    },
+    {
+      "name": "RiskAssessor",
+      "operations": ["assess"],
+      "governed_by": "contracts/schemas/risk/risk-assessment-v1.json",
+      "transport": "serialization"
+    },
+    {
+      "name": "MarketDataFeed",
+      "operations": ["ingest", "normalize", "distribute"],
+      "governed_by": "contracts/schemas/market/tick-data-v1.json",
+      "transport": "serialization",
+      "direction": "rust_to_python_and_go",
+      "notes": "Uses scaled integers. Scale factors defined in configs/exchanges/."
+    }
+  ],
+  "rules": {
+    "no_direct_database_access_across_boundary": true,
+    "all_cross_language_calls_must_be_serialized": true,
+    "type_safety_enforced_via_contract_schemas": true,
+    "error_propagation_required": true,
+    "no_shared_memory_between_languages": true,
+    "audit_required_on_boundary_crossing": true,
+    "numeric_fields_must_use_scaled_integers": true,
+    "parody_test_required_for_each_interface": true
+  },
+  "ownership": {
+    "owner": "SDK Team",
+    "unauthorized_modification": "prohibited",
+    "last_updated": "2026-08-30",
+    "change_reason": "Added MarketDataFeed interface per ADR-2026-08-30-001"
+  }
+}

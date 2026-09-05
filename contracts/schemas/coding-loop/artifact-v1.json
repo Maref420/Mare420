@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "type": "model-contract",
+  "purpose": "Represent a generated code artifact with full traceability",
+  "required_fields": ["requirement", "status"],
+  "optional_fields": ["specification", "generated_files", "dependencies", "security_findings", "test_results", "timestamp", "metadata"],
+  "field_types": {
+    "requirement": "Requirement(model)",
+    "specification": "Specification(model)|null",
+    "generated_files": "list[string](default=[])",
+    "dependencies": "dict[string,string](default={})",
+    "security_findings": "list[SecurityFinding](default=[])",
+    "test_results": "list[TestResult](default=[])",
+    "status": "ApprovalStatus(enum,default=pending)",
+    "timestamp": "datetime(auto_now)",
+    "metadata": "dict[string,any](default={})"
+  },
+  "rules": {
+    "extra_fields": "forbid",
+    "immutable_after_approval": true,
+    "temp_dir_is_forbidden": "Use metadata.temp_dir instead",
+    "security_findings_governed_by": "contracts/schemas/security/security-finding-v1.json"
+  },
+  "dependencies": {
+    "requirement": "contracts/schemas/coding-loop/requirement-v1.json",
+    "specification": "contracts/schemas/coding-loop/specification-v1.json",
+    "status": "contracts/schemas/coding-loop/approval-status-v1.json",
+    "security_findings": "contracts/schemas/security/security-finding-v1.json",
+    "test_results": "contracts/schemas/coding-loop/test-result-v1.json"
+  },
+  "ownership": {
+    "owner": "Atlas Agent Coder",
+    "unauthorized_modification": "prohibited"
+  }
+}

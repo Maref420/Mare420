@@ -1,0 +1,88 @@
+# Event Access Policy — Governed by contracts/schemas/events/event-access-policy-v1.json
+# Last updated: 2026-08-30
+# ADR-2026-08-30-010
+
+version: "1.0"
+policies:
+  - event_type: market.update.v1
+    producers:
+      - core_engine.market_data
+    consumers:
+      - core_engine.strategy
+      - core_engine.risk
+      - intelligence.market_intelligence
+      - intelligence.analytics
+    transport: go_broker_http
+    validation_schema: contracts/schemas/events/market-update-event-v1.json
+    audit_required: true
+    max_payload_bytes: 65536
+
+  - event_type: strategy.signal.v1
+    producers:
+      - core_engine.strategy
+    consumers:
+      - core_engine.execution
+      - core_engine.risk
+      - intelligence.ai_agents
+      - intelligence.analytics
+    transport: go_broker_http
+    validation_schema: contracts/schemas/events/strategy-signal-event-v1.json
+    audit_required: true
+    max_payload_bytes: 32768
+
+  - event_type: execution.outcome.v1
+    producers:
+      - core_engine.execution
+    consumers:
+      - intelligence.memory_system
+      - intelligence.analytics
+    transport: go_broker_http
+    validation_schema: contracts/schemas/events/execution-outcome-event-v1.json
+    audit_required: true
+    max_payload_bytes: 16384
+
+  - event_type: risk.assessment.v1
+    producers:
+      - core_engine.risk
+    consumers:
+      - intelligence.memory_system
+      - intelligence.analytics
+    transport: go_broker_http
+    validation_schema: contracts/schemas/events/risk-assessment-event-v1.json
+    audit_required: true
+    max_payload_bytes: 16384
+
+  - event_type: agent.decision.v1
+    producers:
+      - intelligence.ai_agents
+    consumers:
+      - intelligence.memory_system
+      - intelligence.analytics
+    transport: go_broker_http
+    validation_schema: contracts/schemas/events/agent-decision-event-v1.json
+    audit_required: true
+    max_payload_bytes: 16384
+
+  - event_type: system.status.v1
+    producers:
+      - infrastructure.monitoring
+    consumers:
+      - core_engine
+      - intelligence.ai_agents
+      - services
+      - interface
+    transport: go_broker_http
+    validation_schema: contracts/schemas/events/system-status-event-v1.json
+    audit_required: true
+    max_payload_bytes: 8192
+
+  - event_type: memory.experience.v1
+    producers:
+      - intelligence.memory_system
+      - core_engine
+    consumers:
+      - intelligence.experience_engine
+    transport: go_broker_http
+    validation_schema: contracts/schemas/memory/memory-experience-event-v1.json
+    audit_required: true
+    max_payload_bytes: 32768

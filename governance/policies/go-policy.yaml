@@ -1,0 +1,80 @@
+version: "1.0"
+
+policy:
+  name: go-policy
+  engine: go
+  scope:
+    - backend_services
+    - networking
+    - infrastructure
+    - concurrent_systems
+    - developer_tooling
+
+architecture:
+  ownership_required: true
+  specification_required: true
+  boundary_validation_required: true
+
+code_quality:
+  formatting_required: true
+  idiomatic_go_required: true
+  strict_error_handling_required: true
+  unused_code: prohibited
+  dead_code: prohibited
+  unnecessary_dependencies: prohibited
+  unnecessary_complexity: prohibited
+
+error_handling:
+  explicit_errors_required: true
+  unchecked_errors: prohibited
+  panic:
+    allowed: false
+    exception_requires_approval: true
+
+concurrency:
+  race_safety_required: true
+  uncontrolled_goroutine_creation: prohibited
+  uncontrolled_resource_usage: prohibited
+  shared_state_access_must_be_synchronized: true
+  data_races: prohibited
+
+runtime:
+  resource_limits_required: true
+  uncontrolled_memory_growth: prohibited
+  goroutine_leaks: prohibited
+  graceful_shutdown_required: true
+  failure_handling_required: true
+
+security:
+  secret_exposure: prohibited
+  sensitive_data_logging: prohibited
+  unsafe_deserialization: prohibited
+  external_data_access_review_required: true
+
+dependencies:
+  registry_only: true
+  unapproved_modules: prohibited
+  reproducible_build_required: true
+
+testing:
+  unit_tests_required: true
+  integration_tests_required: true
+  boundary_tests_required: true
+  race_tests_required: true
+
+validation:
+  gofmt_required: true
+  go_vet_required: true
+  go_test_required: true
+  race_detection_required: true
+  build_validation_required: true
+
+artifact:
+  ownership_metadata_required: true
+  specification_reference_required: true
+  validation_report_required: true
+
+agent_rules:
+  self_modification: prohibited
+  governance_modification: prohibited
+  unauthorized_artifact_change: prohibited

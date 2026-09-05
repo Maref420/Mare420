@@ -1,0 +1,17 @@
+version: "1.0"
+
+profiles:
+
+  production:
+    stability: highest
+    experimental_features: false
+
+  research:
+    stability: controlled
+    experimental_features: allowed
+
+  benchmark:
+    performance_testing: true
+
+  legacy:
+    compatibility_priority: true

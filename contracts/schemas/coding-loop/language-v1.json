@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "type": "enum-contract",
+  "purpose": "Supported programming languages for code generation",
+  "enum_name": "Language",
+  "values": ["python", "rust", "go"],
+  "rules": {
+    "case_sensitive": true,
+    "extensible": false
+  },
+  "ownership": {
+    "owner": "Agent Control Plane",
+    "unauthorized_modification": "prohibited"
+  }
+}

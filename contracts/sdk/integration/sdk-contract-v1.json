@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "type": "integration-sdk-contract",
+  "required": [
+    "provider",
+    "request",
+    "response",
+    "metadata"
+  ],
+  "validation": {
+    "external_service_review_required": true,
+    "credential_protection_required": true
+  }
+}

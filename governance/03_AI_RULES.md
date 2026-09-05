@@ -19,7 +19,7 @@ Never:
 - Change folder hierarchy or module ownership.
 - Introduce new crates, packages, services, or dependencies.
 - Change public APIs, contracts, or database ownership.
-- Modify Rust/Python module boundaries.
+- Modify Rust/Python/Go module boundaries.
 
 If a task requires structural changes:
 

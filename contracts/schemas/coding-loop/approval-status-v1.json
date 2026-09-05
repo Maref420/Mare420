@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "type": "enum-contract",
+  "purpose": "Approval workflow states for artifacts and specifications",
+  "enum_name": "ApprovalStatus",
+  "values": ["pending", "approved", "rejected"],
+  "rules": {
+    "case_sensitive": true,
+    "extensible": false,
+    "terminal_states": ["approved", "rejected"]
+  },
+  "ownership": {
+    "owner": "Agent Control Plane",
+    "unauthorized_modification": "prohibited"
+  }
+}

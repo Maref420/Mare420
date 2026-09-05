@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "type": "registry-contract",
+  "purpose": "Register all SDK modules with their language, interface, and contract bindings",
+  "required_fields": ["module_name", "language", "interface_name", "contract_ref", "version"],
+  "field_types": {
+    "module_name": "string(min_length=1)",
+    "language": "enum(python,rust,go)",
+    "interface_name": "string(min_length=1)",
+    "contract_ref": "string(path_to_json_schema)",
+    "version": "string(semver)"
+  },
+  "rules": {
+    "extra_fields": "forbid",
+    "contract_ref_must_exist": true,
+    "one_interface_per_module": true,
+    "version_must_match_contract_version": true
+  },
+  "ownership": {
+    "owner": "SDK Team",
+    "unauthorized_modification": "prohibited"
+  }
+}

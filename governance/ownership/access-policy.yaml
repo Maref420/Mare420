@@ -1,0 +1,7 @@
+version: "1.0"
+
+access:
+  least_privilege_required: true
+  owner_approval_required: true
+  ownership_bypass: prohibited
+  cross_domain_access: prohibited

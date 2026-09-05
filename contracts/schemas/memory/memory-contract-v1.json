@@ -1,0 +1,55 @@
+{
+    "version": "1.0",
+    "type": "memory-contract",
+    "purpose": "Define communication boundaries for Atlas AI memory operations",
+    "memory_types": [
+        "working",
+        "episodic",
+        "semantic",
+        "procedural"
+    ],
+    "operations": [
+        "store",
+        "retrieve",
+        "validate",
+        "consolidate",
+        "forget"
+    ],
+    "required_fields": [
+        "memory_id",
+        "memory_type",
+        "created_at",
+        "content",
+        "metadata",
+        "validation_status",
+        "operation_id",
+        "agent_id"
+    ],
+    "validation_status": [
+        "pending",
+        "validated",
+        "rejected"
+    ],
+    "rules": {
+        "schema_validation_required": true,
+        "access_control_required": true,
+        "ownership_verification_required": true,
+        "audit_logging_required": true,
+        "invalid_memory_rejected": true,
+        "direct_uncontrolled_modification": false
+    },
+    "storage": {
+        "persistent_storage_required": true,
+        "backend_agnostic": true,
+        "direct_database_access_forbidden": true
+    },
+    "traceability": {
+        "operation_id_required": true,
+        "agent_id_required": true,
+        "timestamp_required": true
+    },
+    "ownership": {
+        "owner": "Memory System",
+        "unauthorized_modification": "prohibited"
+    }
+}

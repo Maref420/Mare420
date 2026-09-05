@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "type": "safety-contract",
+  "purpose": "Emergency kill switch for immediate trading cessation",
+  "required_fields": ["trigger_reason", "activated_by", "activated_at", "scope"],
+  "optional_fields": ["auto_resume_at", "metadata"],
+  "field_types": {
+    "trigger_reason": "string(min_length=1)",
+    "activated_by": "string(min_length=1)",
+    "activated_at": "datetime(auto_now)",
+    "scope": "enum(single_agent,all_agents,entire_system)",
+    "auto_resume_at": "datetime|null",
+    "metadata": "dict[string,any](default={})"
+  },
+  "rules": {
+    "extra_fields": "forbid",
+    "immediate_effect": true,
+    "audit_required_on_activation": true,
+    "audit_required_on_deactivation": true,
+    "deactivation_requires_manual_approval": true,
+    "notification_required": true
+  },
+  "ownership": {
+    "owner": "Risk Engine",
+    "unauthorized_modification": "prohibited"
+  }
+}

@@ -1,0 +1,8 @@
+version: "1.0"
+
+ownership:
+  type: artifact
+  ownership_required: true
+  traceability_required: true
+  metadata_required: true
+  unauthorized_modification: prohibited
