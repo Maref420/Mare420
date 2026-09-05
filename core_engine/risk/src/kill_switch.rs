@@ -1,5 +1,5 @@
 //! Kill Switch Manager.
-//! Governed by: risk/risk_engine/kill_switch/README.md
+//! Governed by: docs/task_specs/risk/kill_switch.md
 
 use crate::types::{KillSwitchActivation, KillSwitchScope};
 

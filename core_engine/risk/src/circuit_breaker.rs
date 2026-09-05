@@ -1,5 +1,5 @@
 //! Circuit Breaker with trade-based tripping.
-//! Governed by: risk/risk_engine/circuit_breaker/README.md
+//! Governed by: docs/task_specs/risk/circuit_breaker.md
 
 use crate::types::CircuitBreakerConfig;
 

@@ -1,6 +1,6 @@
 //! Position Management: limit number of open positions.
 //!
-//! Governed by: risk/risk_engine/position_management/README.md
+//! Governed by: docs/task_specs/risk/position_management.md
 
 /// Configuration for position limits.
 #[derive(Debug, Clone)]

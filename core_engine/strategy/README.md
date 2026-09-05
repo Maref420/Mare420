@@ -127,7 +127,7 @@ to downstream stages.
 Required fields: signal_type, symbol, confidence_bps, side
 Optional fields: quantity_scaled, price_scaled, stop_loss_scaled, take_profit_scaled
 
-### For Risk Engine (risk/risk_engine/)
+### For Risk Engine (docs/task_specs/risk/)
 
 Risk receives the SAME contract JSON (not domain types).
 Re-validates independently before approving execution.
