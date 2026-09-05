@@ -93,6 +93,12 @@ class LLMClient:
 
         logger.info("LLMClient: provider=og model=%s fallback=%s", self.model, self.fallback_model)
 
+    def __repr__(self) -> str:
+        return f"LLMClient(model={self.model}, key=***HIDDEN***)"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
     def _check_rate_limit(self) -> None:
         now = time.time()
         with self._rate_lock:
@@ -146,7 +152,11 @@ class LLMClient:
             except urllib.error.HTTPError as e:
                 err_body = ""
                 try:
-                    err_body = e.read().decode()[:300]
+                    raw = e.read().decode()[:300]
+                    # Never expose API key in error messages
+                    if self._og_api_key and len(self._og_api_key) > 8:
+                        raw = raw.replace(self._og_api_key, "***REDACTED***")
+                    err_body = raw
                 except Exception:
                     pass
 
