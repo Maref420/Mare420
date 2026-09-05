@@ -14,6 +14,7 @@ import uuid
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from foundation.logger.python_logger import _TRACE_ID_CTX
 
 _HTTP_STATUS_MAP: Dict[str, int] = {
     "VAL_": 400,
@@ -51,7 +52,7 @@ class ErrorEnvelope(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    trace_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    trace_id: str = Field(default_factory=lambda: _TRACE_ID_CTX.get() or uuid.uuid4().hex)
     span_id: str = Field(default_factory=lambda: uuid.uuid4().hex[:16])
     service: str
     code: str
@@ -77,7 +78,7 @@ class ErrorEnvelope(BaseModel):
         safe_service = service if service in _VALID_SERVICES else "agent"
         safe_message = str(exc)[:500]
         return cls(
-            trace_id=trace_id or uuid.uuid4().hex,
+            trace_id=trace_id or _TRACE_ID_CTX.get() or uuid.uuid4().hex,
             service=safe_service,
             code="INT_INVARIANT_BROKEN",
             retryable=False,
@@ -99,7 +100,7 @@ def _build_envelope(
     safe_service = service if service in _VALID_SERVICES else "agent"
     prefix = _resolve_code_prefix(code)
     return ErrorEnvelope(
-        trace_id=trace_id or uuid.uuid4().hex,
+        trace_id=trace_id or _TRACE_ID_CTX.get() or uuid.uuid4().hex,
         span_id=span_id or uuid.uuid4().hex[:16],
         service=safe_service,
         code=code,
