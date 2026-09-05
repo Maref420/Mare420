@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "deployment-record-v1",
+  "title": "Atlas AI Deployment Record",
+  "description": "Immutable record of artifact deployment per CONSTITUTION.md §2 flow.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": [
+    "deployment_id",
+    "artifact_path",
+    "target_path",
+    "status",
+    "timestamp",
+    "backup_path",
+    "post_deploy_validation",
+    "audit_event_id"
+  ],
+  "properties": {
+    "deployment_id": {
+      "type": "string",
+      "description": "Unique deployment identifier (UUID)"
+    },
+    "artifact_path": {
+      "type": "string",
+      "description": "Source path of the generated artifact"
+    },
+    "target_path": {
+      "type": "string",
+      "description": "Final installation path in project structure"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["deployed", "failed", "rolled_back"],
+      "description": "Final deployment status"
+    },
+    "timestamp": {
+      "type": "number",
+      "description": "Unix timestamp of deployment"
+    },
+    "backup_path": {
+      "type": ["string", "null"],
+      "description": "Path to backup if pre-existing file was replaced"
+    },
+    "post_deploy_validation": {
+      "type": "object",
+      "required": ["syntax_valid", "importable", "tests_passed"],
+      "properties": {
+        "syntax_valid": {"type": "boolean"},
+        "importable": {"type": "boolean"},
+        "tests_passed": {"type": "boolean"},
+        "errors": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "audit_event_id": {
+      "type": "string",
+      "description": "Reference to audit trail event"
+    },
+    "rollback_reason": {
+      "type": ["string", "null"],
+      "description": "If rolled back, the reason"
+    }
+  },
+  "additionalProperties": false
+}

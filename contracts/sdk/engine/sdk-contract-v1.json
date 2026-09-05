@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "type": "engine-sdk-contract",
+  "required": [
+    "engine",
+    "operation",
+    "input",
+    "output",
+    "metadata"
+  ],
+  "validation": {
+    "engine_contract_required": true,
+    "ownership_validation_required": true,
+    "policy_validation_required": true
+  }
+}

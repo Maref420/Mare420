@@ -1,0 +1,43 @@
+# Atlas AI .gitignore — Governed Storage Policy
+**/target/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+*.exe
+*.test
+*.out
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+supabase/.temp/
+logs/
+*.log
+Thumbs.db
+node_modules/
+.pm2/
+output/*/target/
+output/*/__pycache__/
+
+# Build artifacts and archives
+*.tar.gz
+*.rmeta
+output/*/go_server
+output/*/*.exe
+
+# Backup files (never commit)
+*.bak.*
+.cursorrules
+ws-ingestion
+atlas_agent/llm_cache.json

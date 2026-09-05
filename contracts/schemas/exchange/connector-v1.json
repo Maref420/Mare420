@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "type": "service-contract",
+  "purpose": "Define interface and security requirements for all exchange connectors",
+  "supported_exchanges": ["binance", "bybit", "okx", "hyperliquid", "aster"],
+  "required_operations": [
+    "place_order",
+    "cancel_order",
+    "get_balance",
+    "get_position",
+    "get_market_data"
+  ],
+  "security_requirements": {
+    "api_key_storage": "environment_variable_or_vault_only",
+    "hardcoded_keys": "strictly_forbidden",
+    "key_rotation_supported": true,
+    "minimum_key_permissions": "read_and_trade_only_no_withdraw",
+    "ip_whitelist_required": true,
+    "rate_limit_respected": true
+  },
+  "audit_requirements": {
+    "all_operations_must_be_audited": true,
+    "audit_before_execution": true,
+    "audit_after_completion": true,
+    "audit_on_failure": true,
+    "governed_by": "contracts/schemas/audit/audit-contract-v1.json"
+  },
+  "error_handling": {
+    "network_errors": "retry_with_exponential_backoff(max=3)",
+    "authentication_errors": "fail_immediately_and_audit",
+    "rate_limit_errors": "backoff_and_retry",
+    "validation_errors": "fail_immediately_no_retry",
+    "unknown_errors": "fail_safely_and_audit"
+  },
+  "rules": {
+    "extra_fields": "forbid",
+    "no_direct_database_access": true,
+    "order_submission_requires_risk_check": true,
+    "risk_check_governed_by": "contracts/schemas/risk/risk-assessment-v1.json",
+    "order_structure_governed_by": "contracts/schemas/execution/order-v1.json"
+  },
+  "ownership": {
+    "owner": "Exchange Integration Team",
+    "unauthorized_modification": "prohibited"
+  }
+}

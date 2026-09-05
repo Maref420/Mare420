@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MarketUpdateEventV1",
+  "description": "Normalized real-time market information. Governed by contracts/events/market/README.md. Producer: Market Data Engine (Rust). Superset of tick-data-v1 with orderbook state. All numeric fields use scaled integers per ADR-2026-08-30-004.",
+  "type": "object",
+  "required": ["event_id", "symbol", "exchange_id", "timestamp_ns", "update_type"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": { "type": "string", "format": "uuid" },
+    "symbol": { "type": "string", "minLength": 1, "maxLength": 32 },
+    "exchange_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "timestamp_ns": { "type": "integer", "minimum": 1 },
+    "update_type": { "type": "string", "enum": ["tick", "orderbook_snapshot", "orderbook_delta", "trade", "kline"] },
+    "last_price_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "volume_scaled": { "type": ["integer", "null"], "minimum": 0 },
+    "bid_price_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "ask_price_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "bid_quantity_scaled": { "type": ["integer", "null"], "minimum": 0 },
+    "ask_quantity_scaled": { "type": ["integer", "null"], "minimum": 0 },
+    "orderbook_depth": { "type": ["integer", "null"], "minimum": 1, "maximum": 100, "description": "Number of levels in orderbook snapshot" },
+    "spread_bps": { "type": ["integer", "null"], "minimum": 0, "description": "Bid-ask spread in basis points" },
+    "kline_open_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "kline_high_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "kline_low_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "kline_close_scaled": { "type": ["integer", "null"], "minimum": 1 },
+    "kline_interval": { "type": ["string", "null"], "enum": ["1m", "5m", "15m", "1h", "4h", "1d"] },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 16,
+      "additionalProperties": { "type": "string", "maxLength": 256 }
+    }
+  }
+}

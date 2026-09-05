@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "type": "model-contract",
+  "purpose": "Architecture specification derived from requirements",
+  "required_fields": ["requirement", "architecture", "modules", "dependencies"],
+  "optional_fields": ["approved_by", "approved_at"],
+  "field_types": {
+    "requirement": "Requirement(model)",
+    "architecture": "string(min_length=1)",
+    "modules": "list[dict[string,any]]",
+    "dependencies": "list[string]",
+    "approved_by": "string|null",
+    "approved_at": "datetime|null"
+  },
+  "rules": {
+    "extra_fields": "forbid",
+    "approval_required_before_execution": true,
+    "approved_at_requires_approved_by": true
+  },
+  "dependencies": {
+    "requirement": "contracts/schemas/coding-loop/requirement-v1.json"
+  },
+  "ownership": {
+    "owner": "Atlas Agent Architect",
+    "unauthorized_modification": "prohibited"
+  }
+}

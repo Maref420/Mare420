@@ -1,7 +1,7 @@
 # Atlas AI - Architecture Lock
 
 Document ID: ARCH-001
-Version: 1.0.0
+Version: 1.1.0
 Status: LOCKED
 Owner: Project Architect
 Last Updated: 2026-08-05
@@ -55,6 +55,14 @@ Python is responsible for:
 - Research
 - Backtesting
 - Feature Engineering
+Go is responsible for:
+
+- Backend Services
+- Networking
+- Infrastructure Services
+- Concurrent Systems
+- Developer Tooling
+
 
 Shared components must communicate only through approved contracts.
 

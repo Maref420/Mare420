@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "type": "core-sdk-contract",
+  "required": [
+    "request",
+    "response",
+    "metadata"
+  ],
+  "validation": {
+    "schema_required": true,
+    "version_required": true
+  }
+}

@@ -1,0 +1,31 @@
+version: "1.0"
+
+languages:
+
+  rust:
+    status: approved
+    engine: rust_engine
+    purpose:
+      - performance
+      - networking
+      - infrastructure
+      - deterministic_systems
+
+  python:
+    status: approved
+    engine: python_engine
+    purpose:
+      - artificial_intelligence
+      - machine_learning
+      - automation
+      - research
+
+  go:
+    status: approved
+    engine: go_engine
+    purpose:
+      - backend_services
+      - networking
+      - infrastructure
+      - concurrent_systems
+      - developer_tooling

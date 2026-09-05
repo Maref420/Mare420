@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "type": "model-contract",
+  "purpose": "Define input requirements for code generation agents",
+  "required_fields": ["description", "language", "project_name", "target_folder"],
+  "optional_fields": ["additional_rules", "constraints"],
+  "field_types": {
+    "description": "string(min_length=1)",
+    "language": "Language(enum)",
+    "project_name": "string(min_length=1)",
+    "target_folder": "string(min_length=1,relative_path)",
+    "additional_rules": "list[string]",
+    "constraints": "dict[string,any]"
+  },
+  "rules": {
+    "extra_fields": "forbid",
+    "immutable_after_creation": false,
+    "target_folder_must_be_relative": true
+  },
+  "dependencies": {
+    "language": "contracts/schemas/coding-loop/language-v1.json"
+  },
+  "ownership": {
+    "owner": "Atlas Agent Orchestrator",
+    "unauthorized_modification": "prohibited"
+  }
+}

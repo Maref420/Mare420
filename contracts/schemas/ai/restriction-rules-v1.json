@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "restriction-rules-v1",
+  "title": "Atlas AI \u00a717 Restriction Rules",
+  "description": "Single source of truth for CONSTITUTION.md \u00a717 enforcement.",
+  "version": "1.0.0",
+  "last_updated": "2026-09-04",
+  "categories": {
+    "hft_core": {
+      "description": "High-frequency trading core systems",
+      "severity": "BLOCK",
+      "patterns": [
+        "\\bhigh[\\s-]?frequency\\b",
+        "\\bhft\\b",
+        "\\bnanosecond\\s*timing\\b",
+        "\\blatency[\\s-]?critical\\s*execution\\b"
+      ]
+    },
+    "execution_logic": {
+      "description": "Order execution and routing systems",
+      "severity": "BLOCK",
+      "patterns": [
+        "\\border[\\s_]*execution\\b",
+        "\\btrade[\\s_]*execution\\b",
+        "\\bexecution[\\s_]*engine\\b",
+        "\\border[\\s_]*routing\\b",
+        "\\bexchange[\\s_]*order\\b",
+        "\\bordermanager\\b"
+      ]
+    },
+    "risk_systems": {
+      "description": "Risk management and position control",
+      "severity": "BLOCK",
+      "patterns": [
+        "\\brisk[\\s_]*engine\\b",
+        "\\brisk[\\s_]*management\\b",
+        "\\bposition[\\s_]*limit",
+        "\\bexposure[\\s_]*control\\b",
+        "\\bmargin[\\s_]*calculation\\b",
+        "\\brisk[\\s_]*assessment\\b"
+      ]
+    },
+    "trading_strategies": {
+      "description": "Trading strategy and signal generation",
+      "severity": "BLOCK",
+      "patterns": [
+        "\\btrading[\\s_]*strateg",
+        "\\bstrategy[\\s_]*logic\\b",
+        "\\bsignal[\\s_]*generation\\b",
+        "\\bbacktest[\\s_]*engine\\b",
+        "\\balpha[\\s_]*generation\\b",
+        "\\bstrategysignal\\b"
+      ]
+    }
+  },
+  "intent_classification": {
+    "scaffold_indicators": [
+      "\\bscaffold\\b",
+      "\\bstub\\b",
+      "\\btrait\\s+definition\\b",
+      "\\bstruct\\s+definition\\b",
+      "\\benum\\s+definition\\b",
+      "todo!\\(\\)",
+      "unimplemented!\\(\\)",
+      "\\bno\\s+implementation\\b",
+      "\\bwithout\\s+implementation\\b",
+      "\\bdo\\s+not\\s+implement\\b",
+      "\\bforbidden\\s+per\\b",
+      "\\bonly\\s+(the\\s+)?structure\\b",
+      "\\bonly\\s+(the\\s+)?definitions?\\b",
+      "\\bplaceholder\\b"
+    ],
+    "implementation_indicators": [
+      "\\bimplement\\s+the\\b",
+      "\\bwrite\\s+the\\s+logic\\b",
+      "\\bbusiness\\s+logic\\s+for\\b",
+      "\\balgorithm\\s+for\\b",
+      "\\bcalculate\\s+the\\b",
+      "\\bfn\\s+assess\\s*\\(",
+      "\\bfn\\s+execute\\s*\\(",
+      "\\bfn\\s+evaluate\\s*\\(",
+      "\\bposition\\s+sizing\\s+logic\\b",
+      "\\brisk\\s+assessment\\s+logic\\b",
+      "\\border\\s+routing\\s+logic\\b",
+      "\\bsignal\\s+generation\\s+logic\\b"
+    ]
+  },
+  "enforcement": {
+    "single_source": "RestrictionGuard",
+    "delegate_from": [
+      "LLMClient",
+      "GeneratorEngine",
+      "Orchestrator"
+    ],
+    "never_inline": true
+  }
+}

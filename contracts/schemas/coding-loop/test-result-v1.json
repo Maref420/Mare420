@@ -1,0 +1,23 @@
+{
+  "version": "1.0",
+  "type": "model-contract",
+  "purpose": "Capture test execution outcomes for generated artifacts",
+  "required_fields": ["test_name", "passed", "duration_ms"],
+  "optional_fields": ["output", "errors"],
+  "field_types": {
+    "test_name": "string(min_length=1)",
+    "passed": "boolean",
+    "duration_ms": "float(ge=0)",
+    "output": "string(default='')",
+    "errors": "list[string](default=[])"
+  },
+  "rules": {
+    "extra_fields": "forbid",
+    "immutable_after_creation": true,
+    "duration_ms_non_negative": true
+  },
+  "ownership": {
+    "owner": "Atlas Agent Validator",
+    "unauthorized_modification": "prohibited"
+  }
+}

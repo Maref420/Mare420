@@ -1,0 +1,56 @@
+version: "1.0"
+
+dependencies:
+
+  policy:
+    registry_approval_required: true
+    unknown_dependency: prohibited
+
+  security:
+    vulnerability_check_required: true
+    license_check_required: true
+
+# Message Queue — Go Transfer Layer (Future Upgrade Path)
+- name: github.com/nats-io/nats.go
+  language: go
+  purpose: message_queue_transport
+  status: approved_future
+  approved_by: architect
+  notes: "Reserved for production scaling. Current implementation uses stdlib channels."
+
+# HTTP Client — Rust Execution Engine → Go Broker Communication
+- name: ureq
+  language: rust
+  purpose: sync_http_client
+  status: approved
+  approved_by: architect
+  notes: "Lightweight sync HTTP client. No async runtime required. For broker communication only."
+
+# --- Strategy Engine Core Dependencies (Approved 2026-08-31) ---
+- name: serde
+  language: rust
+  purpose: serialization_framework
+  status: approved
+  approved_by: architect
+  notes: "Required for contract-boundary serialization. Features: derive."
+
+- name: serde_json
+  language: rust
+  purpose: json_codec
+  status: approved
+  approved_by: architect
+  notes: "JSON codec for strategy-signal-event-v1 contract."
+
+- name: thiserror
+  language: rust
+  purpose: error_derive
+  status: approved
+  approved_by: architect
+  notes: "Ergonomic error types for validation layer. No unwrap/panic."
+
+- name: uuid
+  language: rust
+  purpose: identifier_generation
+  status: approved
+  approved_by: architect
+  notes: "UUID v4 for event_id and trace_id. Features: v4, serde."
