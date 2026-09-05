@@ -1,6 +1,6 @@
 //! Exposure Control: limit total market exposure.
 //!
-//! Governed by: risk/risk_engine/exposure_control/README.md
+//! Governed by: docs/task_specs/risk/exposure_control.md
 
 /// Configuration for exposure limits.
 #[derive(Debug, Clone)]
