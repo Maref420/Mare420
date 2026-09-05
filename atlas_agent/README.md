@@ -28,7 +28,7 @@ logic protection per CONSTITUTION.md §17.
 - Deterministic scaffold generation (→ tools/specgen/)
 - Exchange connectivity (→ services/exchanges/)
 - Market data processing (→ core_engine/market_data/)
-- Risk engine logic (→ risk/risk_engine/)
+- Risk engine logic (→ docs/task_specs/risk/)
 
 ### MUST NOT
 - Send source code, strategies, or market data to external LLM providers

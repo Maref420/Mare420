@@ -14,13 +14,13 @@ orders. It is a pure decision gate.
 This module currently contains ONLY specification documents. No executable code exists.
 
 Existing documentation:
-- risk/risk_engine/README.md (overview)
-- risk/risk_engine/circuit_breaker/README.md
-- risk/risk_engine/exposure_control/README.md
-- risk/risk_engine/kill_switch/README.md
-- risk/risk_engine/position_management/README.md
-- risk/risk_engine/risk_assessment/README.md
-- risk/risk_engine/validation/README.md
+- docs/task_specs/risk/overview.md (overview)
+- docs/task_specs/risk/circuit_breaker.md
+- docs/task_specs/risk/exposure_control.md
+- docs/task_specs/risk/kill_switch.md
+- docs/task_specs/risk/position_management.md
+- docs/task_specs/risk/risk_assessment.md
+- docs/task_specs/risk/validation.md
 
 ## Architecture (Target)
 
@@ -108,7 +108,7 @@ All failures default to BLOCK (fail-safe principle):
 | Artifact | Location |
 |----------|----------|
 | Task Spec | docs/task_specs/risk_engine.md |
-| Sub-specs | risk/risk_engine/*/README.md |
+| Sub-specs | docs/task_specs/risk/*.md |
 | Policy | TBD |
 
 ### Forbidden Actions

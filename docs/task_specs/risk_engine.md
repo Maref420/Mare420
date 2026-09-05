@@ -2,7 +2,7 @@
 
 ## Identity
 
-- Module: risk/risk_engine/
+- Module: docs/task_specs/risk/
 - Language: Python/Rust (TBD)
 - Owner: risk_team
 - Policy: TBD
