@@ -39,5 +39,6 @@ output/*/*.exe
 # Backup files (never commit)
 *.bak.*
 .cursorrules
-ws-ingestion
+# ws-ingestion binary ignored below
 atlas_agent/llm_cache.json
+/services/ingestion/ws-ingestion
