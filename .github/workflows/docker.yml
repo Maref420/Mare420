@@ -1,0 +1,65 @@
+name: Docker Build & Smoke Test
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: deploy/docker/Dockerfile.ingestion
+            image: atlas-ingestion
+          - dockerfile: deploy/docker/Dockerfile.message-broker
+            image: atlas-broker
+          - dockerfile: deploy/docker/Dockerfile.agent
+            image: atlas-agent
+          - dockerfile: deploy/docker/Dockerfile.ipc-server
+            image: atlas-ipc-server
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.image }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          tags: atlas/${{ matrix.image }}:${{ github.sha }},atlas/${{ matrix.image }}:latest
+          push: false
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Verify image exists
+        run: docker images | grep "${{ matrix.image }}"
+
+  docker-compose-smoke:
+    needs: docker-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start services
+        run: docker compose -f deploy/docker/docker-compose.yml up --build -d
+      - name: Wait for healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8090/health/live > /dev/null 2>&1; then
+              echo "Agent healthy after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Health check timeout"
+          docker compose -f deploy/docker/docker-compose.yml logs
+          exit 1
+      - name: Smoke test agent API
+        run: |
+          curl -sf http://localhost:8090/health/live | grep alive
+          curl -sf http://localhost:8080/health/live | grep alive || true
+          curl -sf http://localhost:8081/health/live | grep alive || true
+      - name: Tear down
+        if: always()
+        run: docker compose -f deploy/docker/docker-compose.yml down -v
