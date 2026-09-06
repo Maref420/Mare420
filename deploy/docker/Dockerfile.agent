@@ -1,7 +1,5 @@
 # syntax=docker/dockerfile:1
 # GOVERNANCE: Matrix C - Python Intelligence Layer
-# Multi-stage build for atlas_agent service.
-
 FROM python:3.12-slim AS builder
 WORKDIR /build
 COPY requirements.txt ./
@@ -20,7 +18,13 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV ATLAS_MEMORY_DB=/app/data/memory.db
+ENV AGENT_HTTP_PORT=8090
 ENV TZ=Etc/UTC
+
+EXPOSE 8090
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+  CMD curl -sf http://127.0.0.1:${AGENT_HTTP_PORT}/health/live || exit 1
 
 LABEL org.opencontainers.image.description="Atlas AI Agent Service" \
       org.opencontainers.image.source="https://github.com/atlas-ai/infrastructure"
@@ -28,7 +32,4 @@ LABEL org.opencontainers.image.description="Atlas AI Agent Service" \
 VOLUME /app/data
 VOLUME /app/uds
 
-# No HEALTHCHECK yet — agent has no HTTP server.
-# Will be added when agent exposes health endpoint.
-
-CMD ["tini", "--", "python", "-m", "atlas_agent"]
+CMD ["tini", "--", "python", "-m", "atlas_agent.http_server"]
