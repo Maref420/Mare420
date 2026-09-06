@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "foundation/metrics/metrics-contract-v1.json",
+  "title": "Metrics Contract v1",
+  "description": "Defines allowed metric names, types, and labels for Atlas AI observability.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": ["metrics"],
+  "properties": {
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "help"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*_[a-z0-9_]*$"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["counter", "gauge", "histogram"]
+          },
+          "help": { "type": "string" },
+          "labels": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  }
+}
