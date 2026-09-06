@@ -21,6 +21,7 @@ from typing import Any
 
 from atlas_agent.engine_ipc_client import IPCClient
 from foundation.metrics.python_metrics import Counter, Gauge, Histogram, MetricsRegistry
+from atlas_agent.auth import AuthMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ _metrics_registry.register(_request_duration)
 _metrics_registry.register(_active_connections)
 
 _shutdown_event = threading.Event()
+_auth_middleware = AuthMiddleware()
 
 
 # ---------------------------------------------------------------------------
@@ -126,6 +128,15 @@ class AgentHTTPRequestHandler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         _active_connections.inc()
         status_code = 500
+
+        # Auth check
+        req_headers = {k: v for k, v in self.headers.items()}
+        allowed, auth_err = _auth_middleware.check(req_headers, path, trace_id)
+        if not allowed and auth_err is not None:
+            self._send_json(auth_err["http_status"], auth_err, trace_id)
+            status_code = auth_err["http_status"]
+            return
+
         try:
             if method == "GET" and path == "/health/live":
                 self._send_json(200, {"status": "alive"}, trace_id)
