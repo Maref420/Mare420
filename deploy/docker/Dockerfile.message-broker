@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+# GOVERNANCE: Matrix B - Go Network/Transfer Layer
+# Multi-stage build for message-broker service.
+
+FROM golang:1.22.2-alpine AS builder
+WORKDIR /build
+COPY services/message_broker/go.mod services/message_broker/go.sum ./
+RUN go mod download
+COPY services/message_broker/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /usr/local/bin/msg-broker \
+    .
+
+FROM alpine:3.20.3
+RUN apk add --no-cache ca-certificates tzdata curl && \
+    addgroup -g 1000 atlas && adduser -u 1000 -G atlas -D atlas
+COPY --from=builder /usr/local/bin/msg-broker /usr/local/bin/msg-broker
+RUN mkdir -p /app && chown -R atlas:atlas /app
+USER atlas:atlas
+WORKDIR /app
+
+ENV PORT=8081
+ENV LOG_FORMAT=json
+ENV TZ=Etc/UTC
+
+EXPOSE 8081
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+  CMD curl -sf http://127.0.0.1:${PORT}/health/live || exit 1
+
+LABEL org.opencontainers.image.description="Atlas Message Broker Service" \
+      org.opencontainers.image.source="https://github.com/atlas-ai/infrastructure"
+
+CMD ["/usr/local/bin/msg-broker"]
