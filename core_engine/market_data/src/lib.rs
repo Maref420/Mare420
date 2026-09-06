@@ -17,7 +17,9 @@
 
 pub mod types;
 pub mod ipc_parser;
+pub mod cross_validator;
 
 // Re-export primary types for ergonomic access
 pub use types::{TickDataV1, TickValidationError};
 pub use ipc_parser::{parse_frame, ParsedFrame, TraceInfo, IpcParseError};
+pub use cross_validator::{CrossValidator, PriceSample, ValidationResult, SpreadSignal, CrossValidationError};
