@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1
+# GOVERNANCE: Matrix B - Go Network/Transfer Layer
+# Multi-stage build for atlas-ws-ingestion service.
+
+FROM golang:1.25.0-alpine AS builder
+WORKDIR /build
+COPY services/ingestion/go.mod services/ingestion/go.sum ./
+RUN go mod download
+COPY services/ingestion/ ./
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w -X main.version=$(date +%Y%m%d)" \
+    -o /usr/local/bin/ws-ingestion \
+    ./cmd/ws-ingestion/
+
+FROM alpine:3.20.3
+RUN apk add --no-cache ca-certificates tzdata curl && \
+    addgroup -g 1000 atlas && adduser -u 1000 -G atlas -D atlas
+COPY --from=builder /usr/local/bin/ws-ingestion /usr/local/bin/ws-ingestion
+RUN mkdir -p /app/uds && chown -R atlas:atlas /app
+USER atlas:atlas
+WORKDIR /app
+
+ENV PORT=8080
+ENV LOG_FORMAT=json
+ENV TZ=Etc/UTC
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=15s --retries=3 \
+  CMD curl -sf http://127.0.0.1:${PORT}/health/live || exit 1
+
+LABEL org.opencontainers.image.description="Atlas WS Ingestion Service" \
+      org.opencontainers.image.source="https://github.com/atlas-ai/infrastructure"
+
+VOLUME /app/uds
+
+CMD ["/usr/local/bin/ws-ingestion"]

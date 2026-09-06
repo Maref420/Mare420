@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+# GOVERNANCE: Matrix C - Python Intelligence Layer
+# Multi-stage build for atlas_agent service.
+
+FROM python:3.12-slim AS builder
+WORKDIR /build
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.12-slim
+RUN apt-get update && apt-get install -y --no-install-recommends tini curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && addgroup --gid 1000 atlas && adduser --uid 1000 --gid 1000 --disabled-password atlas
+COPY --from=builder /install /usr/local
+COPY . /app
+RUN mkdir -p /app/data /app/uds && chown -R atlas:atlas /app
+USER atlas:atlas
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV ATLAS_MEMORY_DB=/app/data/memory.db
+ENV TZ=Etc/UTC
+
+LABEL org.opencontainers.image.description="Atlas AI Agent Service" \
+      org.opencontainers.image.source="https://github.com/atlas-ai/infrastructure"
+
+VOLUME /app/data
+VOLUME /app/uds
+
+# No HEALTHCHECK yet — agent has no HTTP server.
+# Will be added when agent exposes health endpoint.
+
+CMD ["tini", "--", "python", "-m", "atlas_agent"]
