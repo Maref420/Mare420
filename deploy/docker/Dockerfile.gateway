@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+# GOVERNANCE: Matrix B - Go Network/Transfer Layer
+# Multi-stage build for atlas-gateway service.
+FROM golang:1.22-alpine AS builder
+WORKDIR /build
+COPY services/gateway/ ./
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w" \
+    -o /usr/local/bin/atlas-gateway \
+    ./cmd/server
+FROM alpine:3.20.3
+RUN apk add --no-cache ca-certificates tzdata curl && \
+    addgroup -g 1000 atlas && adduser -u 1000 -G atlas -D atlas
+COPY --from=builder /usr/local/bin/atlas-gateway /usr/local/bin/atlas-gateway
+RUN mkdir -p /app && chown -R atlas:atlas /app
+USER atlas:atlas
+WORKDIR /app
+ENV ATLAS_GATEWAY_PORT=8443
+ENV ATLAS_GATEWAY_METRICS_PORT=9091
+ENV TZ=Etc/UTC
+EXPOSE 8443 9091
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -sf http://127.0.0.1:${ATLAS_GATEWAY_PORT}/health/live || exit 1
+LABEL org.opencontainers.image.description="Atlas API Gateway Service" \
+      org.opencontainers.image.source="https://github.com/Maref420/Mare420"
+CMD ["/usr/local/bin/atlas-gateway"]

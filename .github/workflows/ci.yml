@@ -78,6 +78,14 @@ jobs:
       - name: Vet + Test (message_broker)
         working-directory: services/message_broker
         run: go vet ./... && go test -race -v ./...
+      - name: Format check (gateway)
+        working-directory: services/gateway
+        run: |
+          FILES=$(gofmt -l .)
+          if [ -n "$FILES" ]; then echo "Unformatted:"; echo "$FILES"; exit 1; fi
+      - name: Vet + Build (gateway)
+        working-directory: services/gateway
+        run: go vet ./... && go build ./...
 
   python-ci:
     name: Python (intelligence + atlas_agent)
