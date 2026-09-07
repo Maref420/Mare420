@@ -19,6 +19,8 @@ jobs:
             image: atlas-agent
           - dockerfile: deploy/docker/Dockerfile.ipc-server
             image: atlas-ipc-server
+          - dockerfile: deploy/docker/Dockerfile.gateway
+            image: atlas-gateway
     steps:
       - uses: actions/checkout@v4
       - name: Set up Docker Buildx
