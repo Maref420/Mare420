@@ -4,6 +4,7 @@
 // WARNING: No unwrap/expect/panic on any path. All errors via Result.
 pub mod bellman_ford;
 pub mod graph;
+pub mod mapper;
 
 pub use bellman_ford::{find_negative_cycles, shortest_path, PathResult};
 pub use graph::{GraphError, WeightedGraph};
