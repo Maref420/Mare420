@@ -1,0 +1,23 @@
+# MODULE: atlas-arb-orchestrator
+# GOVERNANCE: Matrix D - Deploy Layer
+# Multi-stage build for Rust orchestrator binary.
+FROM rust:1.80-slim-bookworm AS builder
+
+WORKDIR /build
+COPY core_engine/feature_engine/ core_engine/feature_engine/
+COPY core_engine/arb_graph/ core_engine/arb_graph/
+COPY core_engine/arb_orchestrator/ core_engine/arb_orchestrator/
+
+RUN cargo build --release -p arb_orchestrator
+
+FROM debian:bookworm-slim
+
+RUN useradd -m -r atlas && \
+    apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /build/target/release/arb_orchestrator /usr/local/bin/arb_orchestrator
+
+USER atlas
+
+ENTRYPOINT ["/usr/local/bin/arb_orchestrator"]
