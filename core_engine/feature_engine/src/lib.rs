@@ -6,6 +6,7 @@ pub mod aqs;
 pub mod latency;
 pub mod models;
 pub mod obi;
+pub mod spoofing;
 pub mod vpin;
 
 use thiserror::Error;
@@ -137,5 +138,172 @@ mod tests {
         let parsed: ForensicsSignal = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.symbol, signal.symbol);
         assert_eq!(parsed.aqs_score, signal.aqs_score);
+    }
+}
+
+#[cfg(test)]
+mod request_path_tests {
+    use super::*;
+    use crate::models::{MarketSnapshot, OrderbookLevel, TradeRecord};
+
+    /// Helper: creates a valid snapshot for mutation testing.
+    fn valid_snapshot() -> MarketSnapshot {
+        MarketSnapshot {
+            symbol: "BTCUSDT".into(),
+            exchange: "bybit".into(),
+            bids: vec![OrderbookLevel { price_scaled: 65000, quantity: 1.5 }],
+            asks: vec![OrderbookLevel { price_scaled: 65010, quantity: 1.2 }],
+            trades: vec![TradeRecord { price_scaled: 65000, quantity: 0.5, side: "buy".into() }],
+            timestamp_ns: 1725148800000000000,
+        }
+    }
+
+    #[test]
+    fn request_path_empty_symbol_returns_err_no_panic() {
+        let mut snap = valid_snapshot();
+        snap.symbol = "".into();
+        let result = process_snapshot(&snap, "trace-req-1");
+        assert!(result.is_err());
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(err_msg.contains("symbol"));
+    }
+
+    #[test]
+    fn request_path_zero_timestamp_returns_err_no_panic() {
+        let mut snap = valid_snapshot();
+        snap.timestamp_ns = 0;
+        let result = process_snapshot(&snap, "trace-req-2");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn request_path_empty_bids_returns_err_no_panic() {
+        let mut snap = valid_snapshot();
+        snap.bids.clear();
+        let result = process_snapshot(&snap, "trace-req-3");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn request_path_empty_asks_returns_err_no_panic() {
+        let mut snap = valid_snapshot();
+        snap.asks.clear();
+        let result = process_snapshot(&snap, "trace-req-4");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn request_path_negative_price_returns_err_no_panic() {
+        let mut snap = valid_snapshot();
+        snap.bids[0].price_scaled = -100;
+        let result = process_snapshot(&snap, "trace-req-5");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn request_path_zero_price_returns_err_no_panic() {
+        let mut snap = valid_snapshot();
+        snap.bids[0].price_scaled = 0;
+        let result = process_snapshot(&snap, "trace-req-6");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn request_path_empty_trades_succeeds() {
+        let mut snap = valid_snapshot();
+        snap.trades.clear();
+        // VPIN should return 0.0, not panic
+        let result = process_snapshot(&snap, "trace-req-7");
+        assert!(result.is_ok());
+        let signal = result.unwrap();
+        assert_eq!(signal.vpin_toxicity, 0.0);
+    }
+
+    #[test]
+    fn request_path_extreme_quantities_no_panic() {
+        let mut snap = valid_snapshot();
+        snap.bids[0].quantity = f64::MAX;
+        snap.asks[0].quantity = f64::MAX;
+        let result = process_snapshot(&snap, "trace-req-8");
+        // Should succeed or return Err, never panic
+        match result {
+            Ok(signal) => {
+                assert!(signal.orderbook_imbalance >= -1.0 && signal.orderbook_imbalance <= 1.0);
+                assert!(signal.aqs_score >= 0 && signal.aqs_score <= 100);
+                assert!(signal.confidence >= 0.0 && signal.confidence <= 1.0);
+            }
+            Err(_) => {} // Also acceptable
+        }
+    }
+
+    #[test]
+    fn request_path_huge_spread_clamped_aqs() {
+        let mut snap = valid_snapshot();
+        snap.asks[0].price_scaled = 999_999_999;
+        let result = process_snapshot(&snap, "trace-req-9");
+        assert!(result.is_ok());
+        let signal = result.unwrap();
+        assert!(signal.aqs_score >= 0 && signal.aqs_score <= 100);
+    }
+
+    #[test]
+    fn request_path_unknown_trade_side_ignored_no_panic() {
+        let mut snap = valid_snapshot();
+        snap.trades.push(TradeRecord {
+            price_scaled: 65000,
+            quantity: 1.0,
+            side: "unknown_side".into(),
+        });
+        let result = process_snapshot(&snap, "trace-req-10");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn request_path_source_uri_always_set() {
+        let snap = valid_snapshot();
+        let signal = process_snapshot(&snap, "trace-req-11").unwrap();
+        assert_eq!(signal.source_uri, "rust-feature-engine://v1");
+        assert!(!signal.source_uri.is_empty());
+    }
+
+    #[test]
+    fn request_path_trace_id_propagated() {
+        let snap = valid_snapshot();
+        let signal = process_snapshot(&snap, "my-trace-id-xyz").unwrap();
+        assert_eq!(signal.trace_id, "my-trace-id-xyz");
+    }
+
+    #[test]
+    fn request_path_output_serializable_no_panic() {
+        let snap = valid_snapshot();
+        let signal = process_snapshot(&snap, "trace-serde").unwrap();
+        let json = serde_json::to_string(&signal).expect("must serialize");
+        assert!(!json.is_empty());
+        // Verify Python ResearchAgent can parse it
+        let parsed: models::ForensicsSignal = serde_json::from_str(&json).expect("must deserialize");
+        assert_eq!(parsed.symbol, "BTCUSDT");
+    }
+
+    #[test]
+    fn request_path_concurrent_calls_no_data_race() {
+        use std::thread;
+        let mut handles = vec![];
+        for i in 0..20 {
+            handles.push(thread::spawn(move || {
+                let snap = MarketSnapshot {
+                    symbol: format!("SYM_{}", i),
+                    exchange: "test".into(),
+                    bids: vec![OrderbookLevel { price_scaled: 100 + i as i64, quantity: 1.0 }],
+                    asks: vec![OrderbookLevel { price_scaled: 101 + i as i64, quantity: 1.0 }],
+                    trades: vec![],
+                    timestamp_ns: 1_000_000_000 + i as u64,
+                };
+                let result = process_snapshot(&snap, &format!("trace-{}", i));
+                assert!(result.is_ok());
+            }));
+        }
+        for h in handles {
+            h.join().expect("thread must not panic");
+        }
     }
 }
