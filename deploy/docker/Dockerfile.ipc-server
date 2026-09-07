@@ -2,7 +2,7 @@
 # GOVERNANCE: Matrix A - Rust Compute Layer
 # Multi-stage build for atlas-ipc-server.
 
-FROM rust:1.82.0-slim AS builder
+FROM rust:1.85.0-slim AS builder
 WORKDIR /workspace
 COPY core_engine/risk/Cargo.toml core_engine/risk/src/ ./core_engine/risk/
 COPY core_engine/ipc_server/Cargo.toml core_engine/ipc_server/src/ ./core_engine/ipc_server/
