@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -38,6 +39,7 @@ func main() {
 	meter := metering.NewMeter()
 	meterDone := make(chan struct{})
 	go meter.RunCleanup(30*time.Second, meterDone)
+	hub.AttachMeter(meter)
 
 	framesVec := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "gateway_frames_total", Help: "Total frames processed",
@@ -54,6 +56,15 @@ func main() {
 	if ipcSocket == "" {
 		ipcSocket = "/app/uds/atlas-ipc.sock"
 	}
+	if err := os.MkdirAll(filepath.Dir(ipcSocket), 0755); err != nil {
+		slog.Error("socket_dir_create_failed", "path", filepath.Dir(ipcSocket), "error", err)
+		os.Exit(1)
+	}
+	if _, statErr := os.Stat(ipcSocket); statErr == nil {
+		if err := os.Remove(ipcSocket); err != nil {
+			slog.Warn("stale_socket_remove_failed", "socket", ipcSocket, "error", err)
+		}
+	}
 	bridge := feed.NewBridge(hub, meter, ipcSocket, framesVec, bytesVec, droppedVec)
 
 	mux := http.NewServeMux()
@@ -66,13 +77,14 @@ func main() {
 			return
 		}
 		client := feed.NewClient(*customer, hub)
+		client.AttachMeter(meter)
 		if err := client.ServeWS(w, r); err != nil {
 			slog.Warn("client_disconnected", "client_id", client.ID, "error", err)
 		}
 	})
 	mux.Handle("/v1/stream", auth.AuthMiddleware(validator)(streamHandler))
 
-	mux.HandleFunc("/v1/usage", func(w http.ResponseWriter, r *http.Request) {
+	usageHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		customer := auth.GetCustomer(r.Context())
 		if customer == nil {
 			tid := auth.GetTraceID(r.Context())
@@ -81,11 +93,11 @@ func main() {
 		}
 		stats, ok := meter.GetUsage(customer.Name)
 		if !ok {
-			writeJSON(w, http.StatusOK, map[string]string{"message": "no usage data"})
-			return
+			stats = metering.UsageStats{CustomerID: customer.Name}
 		}
 		writeJSON(w, http.StatusOK, stats)
 	})
+	mux.Handle("/v1/usage", auth.AuthMiddleware(validator)(usageHandler))
 
 	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -124,7 +136,8 @@ func main() {
 	slog.Info("gateway_starting", "port", cfg.Port, "customers", len(cfg.APIKeys), "ipc_socket", ipcSocket)
 
 	if err := bridge.Start(context.Background()); err != nil {
-		slog.Warn("bridge_start_deferred", "error", err, "note", "will retry on connection")
+		slog.Error("bridge_start_failed", "error", err)
+		os.Exit(1)
 	}
 
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {

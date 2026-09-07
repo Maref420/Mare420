@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/atlas-ai/services/gateway/internal/config"
+	"github.com/atlas-ai/services/gateway/internal/metering"
 	"github.com/coder/websocket"
 )
 
@@ -23,6 +24,7 @@ type Client struct {
 	hub      *Hub
 	mu       sync.Mutex
 	closed   bool
+	meter    *metering.Meter
 }
 
 func NewClient(customer config.CustomerConfig, hub *Hub) *Client {
@@ -36,6 +38,12 @@ func NewClient(customer config.CustomerConfig, hub *Hub) *Client {
 		hub:      hub,
 		Send:     make(chan []byte, 256),
 	}
+}
+
+func (c *Client) AttachMeter(m *metering.Meter) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.meter = m
 }
 
 func (c *Client) ServeWS(w http.ResponseWriter, r *http.Request) error {
@@ -72,7 +80,7 @@ func (c *Client) ServeWS(w http.ResponseWriter, r *http.Request) error {
 		}
 	}()
 
-	// Write pump with rate limiting
+	// Write pump with rate limiting + per-customer metering
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -92,7 +100,7 @@ func (c *Client) ServeWS(w http.ResponseWriter, r *http.Request) error {
 				if !ok {
 					return
 				}
-				<-ticker.C // Rate limit
+				<-ticker.C
 				c.mu.Lock()
 				if c.closed {
 					c.mu.Unlock()
@@ -106,6 +114,10 @@ func (c *Client) ServeWS(w http.ResponseWriter, r *http.Request) error {
 					slog.Warn("write_error", "client_id", c.ID, "error", err)
 					cancel()
 					return
+				}
+				// Record usage only after successful write
+				if c.meter != nil {
+					c.meter.RecordFrame(c.Customer.Name, len(msg), false)
 				}
 			}
 		}

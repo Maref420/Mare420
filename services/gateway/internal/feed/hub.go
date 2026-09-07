@@ -6,6 +6,8 @@ package feed
 import (
 	"log/slog"
 	"sync"
+
+	"github.com/atlas-ai/services/gateway/internal/metering"
 )
 
 type Hub struct {
@@ -15,6 +17,7 @@ type Hub struct {
 	unregister chan *Client
 	broadcast  chan []byte
 	done       chan struct{}
+	meter      *metering.Meter
 }
 
 func NewHub() *Hub {
@@ -25,6 +28,12 @@ func NewHub() *Hub {
 		broadcast:  make(chan []byte, 1024),
 		done:       make(chan struct{}),
 	}
+}
+
+func (h *Hub) AttachMeter(m *metering.Meter) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.meter = m
 }
 
 func (h *Hub) Run() {
@@ -50,6 +59,9 @@ func (h *Hub) Run() {
 				case c.Send <- msg:
 				default:
 					slog.Warn("frame_dropped", "client_id", c.ID, "reason", "buffer_full")
+					if h.meter != nil {
+						h.meter.RecordFrame(c.Customer.Name, 0, true)
+					}
 				}
 			}
 			h.mu.RUnlock()
