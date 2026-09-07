@@ -1,6 +1,6 @@
 // MODULE: atlas-gateway
 // GOVERNANCE: Matrix B - Go Network/Transfer Layer
-// CONTRACT: Per-customer auth, WS feed, health, metrics
+// CONTRACT: Per-customer auth, WS feed, IPC bridge, metering, health, metrics
 package main
 
 import (
@@ -17,6 +17,8 @@ import (
 	"github.com/atlas-ai/services/gateway/internal/auth"
 	"github.com/atlas-ai/services/gateway/internal/config"
 	"github.com/atlas-ai/services/gateway/internal/feed"
+	"github.com/atlas-ai/services/gateway/internal/metering"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -33,9 +35,29 @@ func main() {
 	hub := feed.NewHub()
 	go hub.Run()
 
+	meter := metering.NewMeter()
+	meterDone := make(chan struct{})
+	go meter.RunCleanup(30*time.Second, meterDone)
+
+	framesVec := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gateway_frames_total", Help: "Total frames processed",
+	}, []string{"customer"})
+	bytesVec := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gateway_bytes_total", Help: "Total bytes processed",
+	}, []string{"customer"})
+	droppedVec := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "gateway_dropped_total", Help: "Total frames dropped",
+	}, []string{"customer"})
+	prometheus.MustRegister(framesVec, bytesVec, droppedVec)
+
+	ipcSocket := os.Getenv("ATLAS_GATEWAY_IPC_SOCKET")
+	if ipcSocket == "" {
+		ipcSocket = "/app/uds/atlas-ipc.sock"
+	}
+	bridge := feed.NewBridge(hub, meter, ipcSocket, framesVec, bytesVec, droppedVec)
+
 	mux := http.NewServeMux()
 
-	// WebSocket stream endpoint
 	streamHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		customer := auth.GetCustomer(r.Context())
 		if customer == nil {
@@ -50,7 +72,21 @@ func main() {
 	})
 	mux.Handle("/v1/stream", auth.AuthMiddleware(validator)(streamHandler))
 
-	// Health endpoints
+	mux.HandleFunc("/v1/usage", func(w http.ResponseWriter, r *http.Request) {
+		customer := auth.GetCustomer(r.Context())
+		if customer == nil {
+			tid := auth.GetTraceID(r.Context())
+			auth.WriteErrorEnvelope(w, tid, "AUTH_MISSING_KEY", false, http.StatusUnauthorized, "auth required")
+			return
+		}
+		stats, ok := meter.GetUsage(customer.Name)
+		if !ok {
+			writeJSON(w, http.StatusOK, map[string]string{"message": "no usage data"})
+			return
+		}
+		writeJSON(w, http.StatusOK, stats)
+	})
+
 	mux.HandleFunc("/health/live", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
@@ -60,8 +96,6 @@ func main() {
 			"clients": hub.ClientCount(),
 		})
 	})
-
-	// Metrics
 	mux.Handle("/metrics", promhttp.Handler())
 
 	server := &http.Server{
@@ -72,7 +106,6 @@ func main() {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Graceful shutdown
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
@@ -80,13 +113,20 @@ func main() {
 		slog.Info("shutdown_signal", "signal", sig.String())
 		ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
+		bridge.Stop()
+		close(meterDone)
 		hub.Stop()
 		if err := server.Shutdown(ctx); err != nil {
 			slog.Error("shutdown_error", "error", err)
 		}
 	}()
 
-	slog.Info("gateway_starting", "port", cfg.Port, "customers", len(cfg.APIKeys))
+	slog.Info("gateway_starting", "port", cfg.Port, "customers", len(cfg.APIKeys), "ipc_socket", ipcSocket)
+
+	if err := bridge.Start(context.Background()); err != nil {
+		slog.Warn("bridge_start_deferred", "error", err, "note", "will retry on connection")
+	}
+
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("listen_error", "error", err)
 		os.Exit(1)
