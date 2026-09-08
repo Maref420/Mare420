@@ -8,6 +8,7 @@ from .integration import (
     get_exchange_quality,
     set_exchange_quality,
 )
+from .replay import AgentSelfAudit, IpcReplayClient
 
 __all__ = [
     "GovernedMemoryStore",
@@ -18,4 +19,6 @@ __all__ = [
     "write_signal_to_memory",
     "get_exchange_quality",
     "set_exchange_quality",
+    "AgentSelfAudit",
+    "IpcReplayClient",
 ]
