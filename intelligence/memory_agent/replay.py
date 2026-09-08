@@ -14,21 +14,41 @@ from .store import GovernedMemoryStore, MemoryStoreError
 class AgentSelfAudit:
     """Enables agents to audit their own decisions via causal trace.
 
-    After a loss or unexpected outcome, an agent can call causal_trace()
-    to walk backward through the decision graph and find root causes.
-    Lessons learned are written back as nodes for future reference.
+    Uses GovernedMemoryStore for writes (lessons) and optionally
+    RustIpcBridge for real BFS causal_trace when available.
     """
 
-    def __init__(self, store: GovernedMemoryStore) -> None:
+    def __init__(
+        self,
+        store: GovernedMemoryStore,
+        ipc_bridge: Optional[RustIpcBridge] = None,
+    ) -> None:
         self._store = store
+        self._ipc = ipc_bridge
 
     def causal_trace(self, node_id: str) -> list[dict[str, Any]]:
-        """Walk edges backward from node_id to find root cause chain."""
+        """Walk edges backward from node_id to find root cause chain.
+
+        If IPC bridge is available, uses real Rust BFS traversal.
+        Otherwise falls back to keyword search in GovernedMemoryStore.
+        """
+        if self._ipc is not None:
+            try:
+                resp = self._ipc.send_command("causal_trace", {"node_id": node_id})
+                if resp.get("ok"):
+                    data = resp.get("data", {})
+                    chain = data.get("chain", [])
+                    if isinstance(chain, list):
+                        return [item for item in chain if isinstance(item, dict)]
+            except MemoryStoreError:
+                pass
+            except Exception:
+                pass
+
+        # Fallback: keyword search
         try:
             results = self._store.search(node_id)
-            if not results:
-                return []
-            return results
+            return results if results else []
         except MemoryStoreError:
             return []
         except Exception:
