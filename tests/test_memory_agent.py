@@ -178,3 +178,101 @@ class TestIntegration:
         store = _make_store()
         result = enrich_signal_from_memory(store, "NONEXISTENT")
         assert result is None
+
+
+class TestRustIpcBridge:
+    def test_find_binary_or_skip(self) -> None:
+        from intelligence.memory_agent.bridge import _find_ipc_binary
+        try:
+            path = _find_ipc_binary()
+            assert "ipc_server" in path
+        except MemoryStoreError as e:
+            assert e.code == "DEP_STORE_UNAVAILABLE"
+            assert e.retryable is True
+
+    def test_ipc_write_and_read(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        node_id = f"ipc_test_{int(time.time() * 1e9)}"
+        try:
+            bridge.write_node({
+                "node_id": node_id, "entity_type": "test",
+                "attributes": {"key": "value"},
+                "source_uri": "python-test://v1", "agent_id": "test-agent",
+                "ttl_ns": 0, "created_at_ns": 1, "updated_at_ns": 1,
+            })
+            result = bridge.read_node(node_id)
+            assert result is not None
+            assert result["node_id"] == node_id
+        finally:
+            bridge.stop()
+
+    def test_ipc_search(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        node_id = f"search_{int(time.time() * 1e9)}"
+        try:
+            bridge.write_node({
+                "node_id": node_id, "entity_type": "exchange",
+                "attributes": {"quality": "DEGRADED_UNIQUE"},
+                "source_uri": "python-test://v1", "agent_id": "test-agent",
+                "ttl_ns": 0, "created_at_ns": 1, "updated_at_ns": 1,
+            })
+            results = bridge.search("DEGRADED_UNIQUE")
+            assert any(r["node_id"] == node_id for r in results)
+        finally:
+            bridge.stop()
+
+    def test_ipc_stats(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        try:
+            stats = bridge.stats()
+            assert "total_nodes" in stats
+        finally:
+            bridge.stop()
+
+    def test_ipc_missing_source_rejected(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        try:
+            with pytest.raises(MemoryStoreError):
+                bridge.write_node({
+                    "node_id": "bad", "entity_type": "test",
+                    "attributes": {}, "source_uri": "",
+                    "agent_id": "a1", "ttl_ns": 0,
+                    "created_at_ns": 1, "updated_at_ns": 1,
+                })
+        finally:
+            bridge.stop()
+
+
+class TestIntegrationHelpers:
+    def test_get_exchange_quality_empty(self) -> None:
+        from intelligence.memory_agent.integration import get_exchange_quality
+        store = _make_store()
+        assert get_exchange_quality(store, "bybit") is None
+
+    def test_set_and_get_exchange_quality(self) -> None:
+        from intelligence.memory_agent.integration import (
+            get_exchange_quality, set_exchange_quality,
+        )
+        store = _make_store()
+        assert set_exchange_quality(store, "Bybit", "DEGRADED") is True
+        assert get_exchange_quality(store, "bybit") == "DEGRADED"
