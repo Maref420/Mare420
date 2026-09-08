@@ -1,7 +1,8 @@
 // MODULE: atlas-memory-store
 // GOVERNANCE: Matrix A - Rust Compute Layer
-// CONTRACT: MemoryGraph engine with governed CRUD, TTL, keyword search.
-use std::collections::HashMap;
+// CONTRACT: MemoryGraph engine with governed CRUD, TTL, keyword search,
+//           temporal replay, causal trace, and diff capabilities.
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::RwLock;
 use crate::node::{MemoryEdge, MemoryError, MemoryNode};
 
@@ -54,7 +55,7 @@ impl MemoryGraph {
     pub fn read_node(&self, id: &str, now_ns: u64) -> Result<Option<MemoryNode>, MemoryError> {
         let mut st = self.state.write().map_err(|e| MemoryError::InternalError(e.to_string()))?;
         st.stats.enrichment_attempts += 1;
-        let found = st.nodes.get(id).map(|n| n.clone());
+        let found = st.nodes.get(id).cloned();
         match found {
             Some(n) => {
                 if n.is_expired(now_ns) { return Err(MemoryError::TtlExpired); }
@@ -116,6 +117,81 @@ impl MemoryGraph {
         let st = self.state.read().map_err(|e| MemoryError::InternalError(e.to_string()))?;
         Ok(st.nodes.len())
     }
+
+    /// Reconstructs exact graph state at a given timestamp.
+    /// Returns nodes alive at target_ns and edges where both endpoints are alive.
+    pub fn replay_at(&self, target_ns: u64) -> Result<(Vec<MemoryNode>, Vec<MemoryEdge>), MemoryError> {
+        let st = self.state.read().map_err(|e| MemoryError::InternalError(e.to_string()))?;
+        let replayed_nodes: Vec<MemoryNode> = st.nodes.values()
+            .filter(|n| n.created_at_ns <= target_ns && !n.is_expired(target_ns))
+            .cloned()
+            .collect();
+        let node_ids: HashSet<String> = replayed_nodes.iter().map(|n| n.node_id.clone()).collect();
+        let replayed_edges: Vec<MemoryEdge> = st.edges.iter()
+            .filter(|e| node_ids.contains(&e.from_node_id) && node_ids.contains(&e.to_node_id))
+            .cloned()
+            .collect();
+        Ok((replayed_nodes, replayed_edges))
+    }
+
+    /// BFS backward traversal from start_node following incoming edges.
+    /// Max depth 10 to prevent cycles. Skips expired nodes.
+    /// Returns chain ordered from start node to root cause ancestors.
+    pub fn causal_trace(&self, start_node_id: &str, now_ns: u64) -> Result<Vec<MemoryNode>, MemoryError> {
+        let st = self.state.read().map_err(|e| MemoryError::InternalError(e.to_string()))?;
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        let mut result = Vec::new();
+
+        if let Some(start_node) = st.nodes.get(start_node_id) {
+            if !start_node.is_expired(now_ns) {
+                queue.push_back(start_node.clone());
+                visited.insert(start_node_id.to_string());
+            }
+        }
+
+        let mut depth = 0usize;
+        while !queue.is_empty() && depth < 10 {
+            let current_len = queue.len();
+            for _ in 0..current_len {
+                let node = match queue.pop_front() {
+                    Some(n) => n,
+                    None => break,
+                };
+                result.push(node.clone());
+                for edge in &st.edges {
+                    if edge.to_node_id == node.node_id {
+                        let ancestor_id = &edge.from_node_id;
+                        if !visited.contains(ancestor_id) {
+                            if let Some(ancestor_node) = st.nodes.get(ancestor_id) {
+                                if !ancestor_node.is_expired(now_ns) {
+                                    visited.insert(ancestor_id.clone());
+                                    queue.push_back(ancestor_node.clone());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            depth += 1;
+        }
+        Ok(result)
+    }
+
+    /// Computes (added, removed) nodes between two timestamps using replay_at.
+    pub fn diff(&self, t1_ns: u64, t2_ns: u64) -> Result<(Vec<MemoryNode>, Vec<MemoryNode>), MemoryError> {
+        let (nodes_t1, _) = self.replay_at(t1_ns)?;
+        let (nodes_t2, _) = self.replay_at(t2_ns)?;
+        let set_t1: HashSet<String> = nodes_t1.iter().map(|n| n.node_id.clone()).collect();
+        let set_t2: HashSet<String> = nodes_t2.iter().map(|n| n.node_id.clone()).collect();
+        let added: Vec<MemoryNode> = nodes_t2.into_iter()
+            .filter(|n| !set_t1.contains(&n.node_id))
+            .collect();
+        let removed: Vec<MemoryNode> = nodes_t1.into_iter()
+            .filter(|n| !set_t2.contains(&n.node_id))
+            .collect();
+        Ok((added, removed))
+    }
 }
 
 #[cfg(test)]
@@ -135,21 +211,25 @@ mod tests {
         g.write_node(mk("n1", 3_600_000_000_000, 1_000_000_000)).unwrap();
         assert!(g.read_node("n1", 2_000_000_000).unwrap().is_some());
     }
+
     #[test] fn test_no_source_rejected() {
         let g = MemoryGraph::new();
         let mut n = mk("n1", 0, 1); n.source_uri = "".into();
         assert!(g.write_node(n).is_err());
     }
+
     #[test] fn test_expired_read_fails() {
         let g = MemoryGraph::new();
         g.write_node(mk("n1", 500_000_000, 1_000_000_000)).unwrap();
         assert!(g.read_node("n1", 2_000_000_000).is_err());
     }
+
     #[test] fn test_conflict_rejected() {
         let g = MemoryGraph::new();
         g.write_node(mk("n1", 0, 2_000_000_000)).unwrap();
         assert!(g.write_node(mk("n1", 0, 1_000_000_000)).is_err());
     }
+
     #[test] fn test_evict() {
         let g = MemoryGraph::new();
         g.write_node(mk("n1", 500_000_000, 1_000_000_000)).unwrap();
@@ -157,6 +237,7 @@ mod tests {
         assert_eq!(g.evict_expired(2_000_000_000).unwrap(), 1);
         assert_eq!(g.node_count().unwrap(), 1);
     }
+
     #[test] fn test_search() {
         let g = MemoryGraph::new();
         let mut n = mk("bybit_status", 0, 1);
@@ -166,6 +247,7 @@ mod tests {
         assert_eq!(g.search("degraded", 2).unwrap().len(), 1);
         assert_eq!(g.search("nonexistent", 2).unwrap().len(), 0);
     }
+
     #[test] fn test_stats_enrichment_rate() {
         let g = MemoryGraph::new();
         g.write_node(mk("n1", 0, 1)).unwrap();
@@ -176,6 +258,7 @@ mod tests {
         assert_eq!(s.enrichment_successes, 1);
         assert!((s.enrichment_rate() - 0.5).abs() < 0.01);
     }
+
     #[test] fn test_export_import() {
         let g = MemoryGraph::new();
         g.write_node(mk("n1", 0, 1)).unwrap();
@@ -184,6 +267,7 @@ mod tests {
         g2.import_state(&data).unwrap();
         assert_eq!(g2.node_count().unwrap(), 1);
     }
+
     #[test] fn test_concurrent_reads() {
         use std::thread;
         let g = std::sync::Arc::new(MemoryGraph::new());
@@ -194,5 +278,133 @@ mod tests {
             handles.push(thread::spawn(move || { let _ = gc.read_node("n1", 2); }));
         }
         for h in handles { h.join().unwrap(); }
+    }
+
+    // === REPLAY TESTS ===
+
+    #[test] fn test_replay_at_filters_by_time() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("early", 0, 100)).unwrap();
+        g.write_node(mk("mid", 0, 200)).unwrap();
+        g.write_node(mk("late", 0, 300)).unwrap();
+
+        let (nodes, _) = g.replay_at(250).unwrap();
+        let ids: HashSet<String> = nodes.iter().map(|n| n.node_id.clone()).collect();
+        assert!(ids.contains("early"));
+        assert!(ids.contains("mid"));
+        assert!(!ids.contains("late"));
+    }
+
+    #[test] fn test_replay_at_excludes_expired() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("alive", 0, 100)).unwrap();
+        g.write_node(mk("short_lived", 50, 100)).unwrap(); // expires at 150
+
+        let (nodes, _) = g.replay_at(200).unwrap();
+        let ids: HashSet<String> = nodes.iter().map(|n| n.node_id.clone()).collect();
+        assert!(ids.contains("alive"));
+        assert!(!ids.contains("short_lived"));
+    }
+
+    #[test] fn test_replay_at_filters_edges() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("a", 0, 100)).unwrap();
+        g.write_node(mk("b", 0, 200)).unwrap();
+        g.write_node(mk("c", 0, 300)).unwrap();
+        g.add_edge(MemoryEdge {
+            from_node_id: "a".into(), to_node_id: "b".into(),
+            relation: "uses".into(), weight: 1.0, source_uri: "t://v1".into(), agent_id: "a1".into(), created_at_ns: 200,
+        }).unwrap();
+        g.add_edge(MemoryEdge {
+            from_node_id: "b".into(), to_node_id: "c".into(),
+            relation: "uses".into(), weight: 1.0, source_uri: "t://v1".into(), agent_id: "a1".into(), created_at_ns: 300,
+        }).unwrap();
+
+        let (_, edges) = g.replay_at(250).unwrap();
+        assert_eq!(edges.len(), 1); // only a→b, not b→c (c not alive at 250)
+    }
+
+    // === CAUSAL TRACE TESTS ===
+
+    #[test] fn test_causal_trace_single_node() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("lonely", 0, 100)).unwrap();
+        let chain = g.causal_trace("lonely", 200).unwrap();
+        assert_eq!(chain.len(), 1);
+        assert_eq!(chain[0].node_id, "lonely");
+    }
+
+    #[test] fn test_causal_trace_follows_edges_backward() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("root", 0, 100)).unwrap();
+        g.write_node(mk("mid", 0, 200)).unwrap();
+        g.write_node(mk("leaf", 0, 300)).unwrap();
+        g.add_edge(MemoryEdge {
+            from_node_id: "root".into(), to_node_id: "mid".into(),
+            relation: "caused".into(), weight: 1.0, source_uri: "t://v1".into(), agent_id: "a1".into(), created_at_ns: 200,
+        }).unwrap();
+        g.add_edge(MemoryEdge {
+            from_node_id: "mid".into(), to_node_id: "leaf".into(),
+            relation: "caused".into(), weight: 1.0, source_uri: "t://v1".into(), agent_id: "a1".into(), created_at_ns: 300,
+        }).unwrap();
+
+        let chain = g.causal_trace("leaf", 400).unwrap();
+        assert_eq!(chain.len(), 3);
+        assert_eq!(chain[0].node_id, "leaf");
+        assert_eq!(chain[1].node_id, "mid");
+        assert_eq!(chain[2].node_id, "root");
+    }
+
+    #[test] fn test_causal_trace_skips_expired() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("root", 50, 100)).unwrap(); // expires at 150
+        g.write_node(mk("leaf", 0, 200)).unwrap();
+        g.add_edge(MemoryEdge {
+            from_node_id: "root".into(), to_node_id: "leaf".into(),
+            relation: "caused".into(), weight: 1.0, source_uri: "t://v1".into(), agent_id: "a1".into(), created_at_ns: 200,
+        }).unwrap();
+
+        let chain = g.causal_trace("leaf", 300).unwrap();
+        assert_eq!(chain.len(), 1); // root expired, only leaf
+        assert_eq!(chain[0].node_id, "leaf");
+    }
+
+    #[test] fn test_causal_trace_nonexistent_returns_empty() {
+        let g = MemoryGraph::new();
+        let chain = g.causal_trace("ghost", 100).unwrap();
+        assert!(chain.is_empty());
+    }
+
+    // === DIFF TESTS ===
+
+    #[test] fn test_diff_added_nodes() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("old", 0, 100)).unwrap();
+        g.write_node(mk("new", 0, 300)).unwrap();
+
+        let (added, removed) = g.diff(200, 400).unwrap();
+        assert_eq!(added.len(), 1);
+        assert_eq!(added[0].node_id, "new");
+        assert!(removed.is_empty());
+    }
+
+    #[test] fn test_diff_removed_by_ttl() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("persistent", 0, 100)).unwrap();
+        g.write_node(mk("ephemeral", 50, 100)).unwrap(); // expires at 150
+
+        let (added, removed) = g.diff(120, 200).unwrap();
+        assert!(added.is_empty());
+        assert_eq!(removed.len(), 1);
+        assert_eq!(removed[0].node_id, "ephemeral");
+    }
+
+    #[test] fn test_diff_no_change() {
+        let g = MemoryGraph::new();
+        g.write_node(mk("stable", 0, 100)).unwrap();
+
+        let (added, removed) = g.diff(200, 300).unwrap();
+        assert!(added.is_empty());
+        assert!(removed.is_empty());
     }
 }

@@ -276,3 +276,209 @@ class TestIntegrationHelpers:
         store = _make_store()
         assert set_exchange_quality(store, "Bybit", "DEGRADED") is True
         assert get_exchange_quality(store, "bybit") == "DEGRADED"
+
+
+class TestAgentSelfAudit:
+    def test_record_and_search_lesson(self) -> None:
+        from intelligence.memory_agent.replay import AgentSelfAudit
+        store = _make_store()
+        audit = AgentSelfAudit(store)
+        assert audit.record_lesson(
+            agent_id="analyst",
+            decision_node_id="dec_001",
+            lesson="Never ignore spoofing with confidence > 0.8",
+            context={"signal": "sig_001"},
+        ) is True
+        lessons = audit.search_lessons("spoofing")
+        assert len(lessons) >= 1
+        assert "spoofing" in lessons[0]["attributes"]["lesson"]
+
+    def test_audit_decision_loss(self) -> None:
+        from intelligence.memory_agent.replay import AgentSelfAudit
+        store = _make_store()
+        audit = AgentSelfAudit(store)
+        store.write_node(
+            node_id="dec_loss_1",
+            entity_type="decision",
+            attributes={"action": "HOLD"},
+            ttl_ns=0,
+        )
+        lesson = audit.audit_decision("dec_loss_1", "loss", "analyst")
+        assert lesson is not None
+        assert "loss" in lesson
+
+    def test_audit_decision_win_returns_none(self) -> None:
+        from intelligence.memory_agent.replay import AgentSelfAudit
+        store = _make_store()
+        audit = AgentSelfAudit(store)
+        store.write_node(
+            node_id="dec_win_1",
+            entity_type="decision",
+            attributes={"action": "SELL"},
+            ttl_ns=0,
+        )
+        lesson = audit.audit_decision("dec_win_1", "win", "analyst")
+        assert lesson is None
+
+
+class TestIpcReplayCommands:
+    def test_ipc_replay_at(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        from intelligence.memory_agent.replay import IpcReplayClient
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        try:
+            bridge.write_node({
+                "node_id": "replay_test", "entity_type": "test",
+                "attributes": {}, "source_uri": "t://v1", "agent_id": "a1",
+                "ttl_ns": 0, "created_at_ns": 100, "updated_at_ns": 100,
+            })
+            client = IpcReplayClient(bridge)
+            result = client.replay_at(200)
+            assert "nodes" in result
+            assert any(n["node_id"] == "replay_test" for n in result["nodes"])
+        finally:
+            bridge.stop()
+
+    def test_ipc_causal_trace(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        from intelligence.memory_agent.replay import IpcReplayClient
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        try:
+            bridge.write_node({
+                "node_id": "trace_root", "entity_type": "signal",
+                "attributes": {}, "source_uri": "t://v1", "agent_id": "a1",
+                "ttl_ns": 0, "created_at_ns": 100, "updated_at_ns": 100,
+            })
+            client = IpcReplayClient(bridge)
+            chain = client.causal_trace("trace_root")
+            assert isinstance(chain, list)
+            assert len(chain) >= 1
+        finally:
+            bridge.stop()
+
+    def test_ipc_diff(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        from intelligence.memory_agent.replay import IpcReplayClient
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        try:
+            client = IpcReplayClient(bridge)
+            result = client.diff(100, 200)
+            assert "added" in result
+            assert "removed" in result
+        finally:
+            bridge.stop()
+
+
+class TestAgentSelfAudit:
+    def test_record_and_search_lesson(self) -> None:
+        from intelligence.memory_agent.replay import AgentSelfAudit
+        store = _make_store()
+        audit = AgentSelfAudit(store)
+        assert audit.record_lesson(
+            agent_id="analyst",
+            decision_node_id="dec_001",
+            lesson="Never ignore spoofing with confidence > 0.8",
+            context={"signal": "sig_001"},
+        ) is True
+        lessons = audit.search_lessons("spoofing")
+        assert len(lessons) >= 1
+        assert "spoofing" in lessons[0]["attributes"]["lesson"]
+
+    def test_audit_decision_loss(self) -> None:
+        from intelligence.memory_agent.replay import AgentSelfAudit
+        store = _make_store()
+        audit = AgentSelfAudit(store)
+        store.write_node(
+            node_id="dec_loss_1",
+            entity_type="decision",
+            attributes={"action": "HOLD"},
+            ttl_ns=0,
+        )
+        lesson = audit.audit_decision("dec_loss_1", "loss", "analyst")
+        assert lesson is not None
+        assert "loss" in lesson
+
+    def test_audit_decision_win_returns_none(self) -> None:
+        from intelligence.memory_agent.replay import AgentSelfAudit
+        store = _make_store()
+        audit = AgentSelfAudit(store)
+        store.write_node(
+            node_id="dec_win_1",
+            entity_type="decision",
+            attributes={"action": "SELL"},
+            ttl_ns=0,
+        )
+        lesson = audit.audit_decision("dec_win_1", "win", "analyst")
+        assert lesson is None
+
+
+class TestIpcReplayCommands:
+    def test_ipc_replay_at(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        from intelligence.memory_agent.replay import IpcReplayClient
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        try:
+            bridge.write_node({
+                "node_id": "replay_test", "entity_type": "test",
+                "attributes": {}, "source_uri": "t://v1", "agent_id": "a1",
+                "ttl_ns": 0, "created_at_ns": 100, "updated_at_ns": 100,
+            })
+            client = IpcReplayClient(bridge)
+            result = client.replay_at(200)
+            assert "nodes" in result
+            assert any(n["node_id"] == "replay_test" for n in result["nodes"])
+        finally:
+            bridge.stop()
+
+    def test_ipc_causal_trace(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        from intelligence.memory_agent.replay import IpcReplayClient
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        try:
+            bridge.write_node({
+                "node_id": "trace_root", "entity_type": "signal",
+                "attributes": {}, "source_uri": "t://v1", "agent_id": "a1",
+                "ttl_ns": 0, "created_at_ns": 100, "updated_at_ns": 100,
+            })
+            client = IpcReplayClient(bridge)
+            chain = client.causal_trace("trace_root")
+            assert isinstance(chain, list)
+            assert len(chain) >= 1
+        finally:
+            bridge.stop()
+
+    def test_ipc_diff(self) -> None:
+        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
+        from intelligence.memory_agent.replay import IpcReplayClient
+        try:
+            _find_ipc_binary()
+        except MemoryStoreError:
+            pytest.skip("Rust IPC binary not built")
+        bridge = RustIpcBridge(response_timeout_secs=2.0)
+        try:
+            client = IpcReplayClient(bridge)
+            result = client.diff(100, 200)
+            assert "added" in result
+            assert "removed" in result
+        finally:
+            bridge.stop()

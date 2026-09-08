@@ -136,6 +136,58 @@ fn handle_import(graph: &MemoryGraph, payload: &serde_json::Value) -> IpcRespons
     }
 }
 
+fn handle_replay(graph: &MemoryGraph, payload: &serde_json::Value) -> IpcResponse {
+    let target_ns = match payload.get("timestamp_ns").and_then(|v| v.as_u64()) {
+        Some(t) => t,
+        None => return IpcResponse::fail("VAL_INVALID_INPUT", "missing timestamp_ns", false),
+    };
+    match graph.replay_at(target_ns) {
+        Ok((nodes, edges)) => {
+            let data = serde_json::json!({
+                "nodes": serde_json::to_value(&nodes).unwrap_or_default(),
+                "edges": serde_json::to_value(&edges).unwrap_or_default(),
+            });
+            IpcResponse::success(data)
+        }
+        Err(e) => map_error(&e),
+    }
+}
+
+fn handle_causal_trace(graph: &MemoryGraph, payload: &serde_json::Value) -> IpcResponse {
+    let node_id = match payload.get("node_id").and_then(|v| v.as_str()) {
+        Some(id) => id,
+        None => return IpcResponse::fail("VAL_INVALID_INPUT", "missing node_id", false),
+    };
+    match graph.causal_trace(node_id, now_ns()) {
+        Ok(chain) => match serde_json::to_value(&chain) {
+            Ok(v) => IpcResponse::success(serde_json::json!({"chain": v})),
+            Err(e) => IpcResponse::fail("INT_INVARIANT_BROKEN", &e.to_string(), false),
+        },
+        Err(e) => map_error(&e),
+    }
+}
+
+fn handle_diff(graph: &MemoryGraph, payload: &serde_json::Value) -> IpcResponse {
+    let t1 = match payload.get("t1_ns").and_then(|v| v.as_u64()) {
+        Some(t) => t,
+        None => return IpcResponse::fail("VAL_INVALID_INPUT", "missing t1_ns", false),
+    };
+    let t2 = match payload.get("t2_ns").and_then(|v| v.as_u64()) {
+        Some(t) => t,
+        None => return IpcResponse::fail("VAL_INVALID_INPUT", "missing t2_ns", false),
+    };
+    match graph.diff(t1, t2) {
+        Ok((added, removed)) => {
+            let data = serde_json::json!({
+                "added": serde_json::to_value(&added).unwrap_or_default(),
+                "removed": serde_json::to_value(&removed).unwrap_or_default(),
+            });
+            IpcResponse::success(data)
+        }
+        Err(e) => map_error(&e),
+    }
+}
+
 fn main() {
     let graph = std::sync::Arc::new(MemoryGraph::new());
     let config = PersistConfig::default();
@@ -183,6 +235,9 @@ fn main() {
             "stats" => handle_stats(&graph),
             "export" => handle_export(&graph),
             "import" => handle_import(&graph, &req.payload),
+            "replay" => handle_replay(&graph, &req.payload),
+            "causal_trace" => handle_causal_trace(&graph, &req.payload),
+            "diff" => handle_diff(&graph, &req.payload),
             _ => IpcResponse::fail("VAL_INVALID_INPUT", &format!("unknown cmd: {}", req.cmd), false),
         };
 
