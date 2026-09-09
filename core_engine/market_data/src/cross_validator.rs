@@ -137,7 +137,7 @@ impl CrossValidator {
         let sym_windows = self
             .windows
             .entry(symbol.to_string())
-            .or_insert_with(std::collections::HashMap::new);
+            .or_default();
         let window = sym_windows
             .entry(sample.exchange_id.clone())
             .or_insert_with(SymbolWindow::new);
@@ -184,7 +184,7 @@ impl CrossValidator {
         valid_prices.sort_by_key(|&(_, p)| p);
 
         let count = valid_prices.len();
-        let median_price = if count % 2 == 0 {
+        let median_price = if count.is_multiple_of(2) {
             let mid = count / 2;
             // Integer average — no floats
             (valid_prices[mid - 1].1 + valid_prices[mid].1) / 2

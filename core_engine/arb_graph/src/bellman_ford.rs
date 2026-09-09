@@ -66,23 +66,19 @@ pub fn find_negative_cycles(graph: &WeightedGraph) -> Vec<PathResult> {
             let mut path = vec![cycle_start];
             let mut current = cycle_start;
             let mut total_weight = 0.0_f64;
-            loop {
-                if let Some(p) = parent[current] {
-                    // Find edge weight
-                    let w = edges.iter()
-                        .find(|e| e.from == p && e.to == current)
-                        .map_or(0.0, |e| e.weight);
-                    total_weight += w;
-                    path.push(p);
-                    current = p;
-                    if current == cycle_start {
-                        break;
-                    }
-                    if path.len() > n + 1 {
-                        break; // Safety bound
-                    }
-                } else {
+            while let Some(p) = parent[current] {
+                // Find edge weight
+                let w = edges.iter()
+                    .find(|e| e.from == p && e.to == current)
+                    .map_or(0.0, |e| e.weight);
+                total_weight += w;
+                path.push(p);
+                current = p;
+                if current == cycle_start {
                     break;
+                }
+                if path.len() > n + 1 {
+                    break; // Safety bound
                 }
             }
             path.reverse();

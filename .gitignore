@@ -42,3 +42,9 @@ output/*/*.exe
 # ws-ingestion binary ignored below
 atlas_agent/llm_cache.json
 /services/ingestion/ws-ingestion
+
+# Runtime data (never commit)
+data/
+core_engine/memory_store/data/
+core_engine/ipc_server/Cargo.lock
+obv
