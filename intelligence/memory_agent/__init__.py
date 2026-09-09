@@ -9,6 +9,14 @@ from .integration import (
     set_exchange_quality,
 )
 from .replay import AgentSelfAudit, IpcReplayClient
+from .protocol import (
+    SignalNode,
+    SignalPriority,
+    SignalStatus,
+    AgentMessage,
+)
+from .orchestrator import MemoryGraphAgent
+from .neural import NeuralRouter, SynapseConfig
 
 __all__ = [
     "GovernedMemoryStore",
@@ -21,4 +29,11 @@ __all__ = [
     "set_exchange_quality",
     "AgentSelfAudit",
     "IpcReplayClient",
+    "SignalNode",
+    "SignalPriority",
+    "SignalStatus",
+    "AgentMessage",
+    "MemoryGraphAgent",
+    "NeuralRouter",
+    "SynapseConfig",
 ]
