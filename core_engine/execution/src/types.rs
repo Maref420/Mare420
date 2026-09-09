@@ -42,10 +42,8 @@ impl Order {
             errors.push("agent_id must not be empty".into());
         }
         match self.order_type {
-            OrderType::Limit | OrderType::StopLimit => {
-                if self.price.is_none() || self.price.unwrap() <= 0.0 {
-                    errors.push("price required and > 0 for limit orders".into());
-                }
+            OrderType::Limit | OrderType::StopLimit if self.price.is_none_or(|p| p <= 0.0) => {
+                errors.push("price required and > 0 for limit orders".into());
             }
             _ => {}
         }

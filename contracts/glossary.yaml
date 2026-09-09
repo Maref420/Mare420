@@ -1,0 +1,31 @@
+# =============================================================================
+# ATLAS-AI SHARED GLOSSARY (R04)
+# ⚠️ OG-GENERATED — REVIEW REQUIRED
+# Every term MUST have: definition + source + caveat
+# =============================================================================
+
+terms:
+  governed_memory:
+    definition: "Persistent agent knowledge with mandatory provenance (source_uri + agent_id), TTL enforcement, and conflict detection."
+    source: "ADR-006, R06"
+    caveat: "Phase 1 uses keyword recall only; semantic search requires Phase 2 Rust engine."
+
+  source_badge:
+    definition: "Mandatory URI identifying the origin system of any data claim produced by an agent."
+    source: "R03, GovernedMemoryStore.write()"
+    caveat: "Must be a resolvable URI or documented identifier; free-text labels are rejected."
+
+  enrichment:
+    definition: "Async LLM-driven classification, titling, and weighting of raw memory content via LLMClient."
+    source: "atlas_agent/llm_client.py, GovernedMemoryStore"
+    caveat: "Cached by LLMCache; guarded by RestrictionGuard §17. May fail silently — record remains usable with enrichment_complete=false."
+
+  active_account:
+    definition: "User with ≥1 API call in last 30 days."
+    source: "analytics_db.vw_active_users"
+    caveat: "Excludes @atlas.dev internal test accounts. Count is a floor, not census."
+
+  error_envelope:
+    definition: "Standardized cross-service error format with code, retryable flag, trace_id, and safe message (§6 Master Prompt)."
+    source: "Master Prompt §6, proto/error/v1/error.proto"
+    caveat: "Consumers key off code+retryable only; never parse message for control flow."

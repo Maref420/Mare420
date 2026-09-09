@@ -124,3 +124,8 @@ impl OrderManager {
         }
     }
 }
+
+
+impl Default for OrderManager {
+    fn default() -> Self { Self::new() }
+}

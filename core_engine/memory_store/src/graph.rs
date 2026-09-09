@@ -408,3 +408,8 @@ mod tests {
         assert!(removed.is_empty());
     }
 }
+
+
+impl Default for MemoryGraph {
+    fn default() -> Self { Self::new() }
+}

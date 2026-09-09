@@ -8,6 +8,8 @@ pub mod models;
 pub mod obi;
 pub mod spoofing;
 pub mod vpin;
+pub mod vwap;
+pub mod strategy;
 
 use thiserror::Error;
 
