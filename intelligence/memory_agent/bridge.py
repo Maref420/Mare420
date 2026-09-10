@@ -4,12 +4,13 @@
 # WARNING: No bare except. All errors mapped to MemoryStoreError.
 from __future__ import annotations
 
+import contextlib
 import json
 import select
 import subprocess
 import threading
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .store import MemoryStoreError
 
@@ -39,12 +40,12 @@ class RustIpcBridge:
 
     def __init__(
         self,
-        binary_path: Optional[str] = None,
+        binary_path: str | None = None,
         response_timeout_secs: float = 5.0,
     ) -> None:
         self._binary = binary_path or _find_ipc_binary()
         self._response_timeout_secs = response_timeout_secs
-        self._proc: Optional[subprocess.Popen[bytes]] = None
+        self._proc: subprocess.Popen[bytes] | None = None
         self._lock = threading.Lock()
         self._started = False
 
@@ -79,19 +80,15 @@ class RustIpcBridge:
             return
 
         if self._proc.stdin is not None:
-            try:
+            with contextlib.suppress(OSError):
                 self._proc.stdin.close()
-            except OSError:
-                pass
 
         try:
             self._proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             self._proc.kill()
-            try:
+            with contextlib.suppress(subprocess.TimeoutExpired):
                 self._proc.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                pass
 
         self._proc = None
         self._started = False
@@ -185,7 +182,7 @@ class RustIpcBridge:
                 err.get("retryable", False),
             )
 
-    def read_node(self, node_id: str) -> Optional[dict[str, Any]]:
+    def read_node(self, node_id: str) -> dict[str, Any] | None:
         resp = self.send_command("read", {"node_id": node_id})
         if not resp.get("ok"):
             err = resp.get("error", {})

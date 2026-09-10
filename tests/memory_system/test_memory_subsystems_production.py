@@ -7,7 +7,7 @@ Not synthetic. Tests real governance enforcement in each subsystem.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -43,7 +43,7 @@ def make_record(memory_id: str, memory_type: MemoryType) -> MemoryRecord:
     return MemoryRecord(
         memory_id=memory_id,
         memory_type=memory_type,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content={"test": True},
         metadata={},
         validation_status=ValidationStatus.VALIDATED,

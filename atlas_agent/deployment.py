@@ -15,8 +15,6 @@ import os
 import shutil
 import time
 import uuid
-from pathlib import Path
-from typing import Optional
 
 from .models import ApprovalStatus, DeploymentRecord
 
@@ -51,7 +49,7 @@ class DeploymentEngine:
         """
         deployment_id = str(uuid.uuid4())[:12]
         timestamp = time.time()
-        backup_path: Optional[str] = None
+        backup_path: str | None = None
 
         logger.info("Deploy %s: %s → %s", deployment_id, artifact_path, target_path)
 
@@ -131,7 +129,7 @@ class DeploymentEngine:
         shutil.copy2(target_path, backup_path)
         return backup_path
 
-    def _rollback(self, target_path: str, backup_path: Optional[str]) -> None:
+    def _rollback(self, target_path: str, backup_path: str | None) -> None:
         """Restore from backup if available."""
         if backup_path and os.path.isfile(backup_path):
             shutil.copy2(backup_path, target_path)
@@ -182,9 +180,9 @@ class DeploymentEngine:
         artifact_path: str,
         target_path: str,
         timestamp: float,
-        backup_path: Optional[str],
+        backup_path: str | None,
         reason: str,
-        validation: Optional[dict] = None,
+        validation: dict | None = None,
     ) -> DeploymentRecord:
         """Create a failure deployment record."""
         status = ApprovalStatus.ROLLED_BACK if backup_path else ApprovalStatus.DEPLOY_FAILED

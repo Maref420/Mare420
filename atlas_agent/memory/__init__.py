@@ -3,7 +3,7 @@
 NOT trading agent memory (that is intelligence/memory_system/).
 """
 
+from .experience import Decision, Experience
 from .learning_memory import LearningMemory
-from .experience import Experience, Decision
 
 __all__ = ["LearningMemory", "Experience", "Decision"]

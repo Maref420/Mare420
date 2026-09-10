@@ -6,7 +6,7 @@ Updated to match governed API:
 - retrieve() must return a valid record for deletion to proceed
 """
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from intelligence.agent_control_plane.audit.memory_sink import InMemoryAuditSink
 from intelligence.memory_system.forgetting.engine import MemoryForgettingEngine
@@ -22,7 +22,7 @@ def make_episodic_record(memory_id: str) -> MemoryRecord:
     return MemoryRecord(
         memory_id=memory_id,
         memory_type=MemoryType.EPISODIC,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content={"test": True},
         metadata={},
         validation_status=ValidationStatus.VALIDATED,

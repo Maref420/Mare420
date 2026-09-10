@@ -15,7 +15,7 @@ Governance compliance:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -37,7 +37,7 @@ def valid_record() -> MemoryRecord:
         operation_id="op-001",
         agent_id="agent-test",
         memory_type=MemoryType.EPISODIC,
-        created_at=datetime.now(tz=timezone.utc),
+        created_at=datetime.now(tz=UTC),
         content={"event": "test event", "value": 42},
         metadata={"source": "test"},
         validation_status=ValidationStatus.VALIDATED,
@@ -52,7 +52,7 @@ def unvalidated_record() -> MemoryRecord:
         operation_id="op-bad",
         agent_id="agent-test",
         memory_type=MemoryType.EPISODIC,
-        created_at=datetime.now(tz=timezone.utc),
+        created_at=datetime.now(tz=UTC),
         content={"event": "bad"},
         metadata={},
         validation_status=ValidationStatus.REJECTED,
@@ -212,7 +212,7 @@ class TestMemoryKernelValidateType:
                 operation_id=f"op-{mtype.value}",
                 agent_id="agent-test",
                 memory_type=mtype,
-                created_at=datetime.now(tz=timezone.utc),
+                created_at=datetime.now(tz=UTC),
                 content="test",
                 metadata={},
                 validation_status=ValidationStatus.VALIDATED,

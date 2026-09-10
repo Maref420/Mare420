@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Optional
+from typing import Any
 
 from .bridge import RustIpcBridge
 from .store import GovernedMemoryStore, MemoryStoreError
@@ -21,7 +21,7 @@ class AgentSelfAudit:
     def __init__(
         self,
         store: GovernedMemoryStore,
-        ipc_bridge: Optional[RustIpcBridge] = None,
+        ipc_bridge: RustIpcBridge | None = None,
     ) -> None:
         self._store = store
         self._ipc = ipc_bridge
@@ -95,7 +95,7 @@ class AgentSelfAudit:
         decision_node_id: str,
         outcome: str,
         agent_id: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Full audit cycle: trace -> analyze -> record lesson.
 
         Returns the lesson text if audit produced one, None otherwise.

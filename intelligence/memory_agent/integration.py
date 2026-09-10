@@ -2,8 +2,11 @@
 # GOVERNANCE: Matrix C - Python Intelligence Layer
 # WARNING: No bare except. All errors handled explicitly.
 from __future__ import annotations
-from typing import Any, Optional
+
+from typing import Any
+
 from intelligence.research_agent.models import ForensicsSignal
+
 from .store import GovernedMemoryStore, MemoryStoreError
 
 
@@ -27,7 +30,7 @@ def write_signal_to_memory(store: GovernedMemoryStore, signal: ForensicsSignal) 
         return False
 
 
-def enrich_signal_from_memory(store: GovernedMemoryStore, symbol: str) -> Optional[dict[str, Any]]:
+def enrich_signal_from_memory(store: GovernedMemoryStore, symbol: str) -> dict[str, Any] | None:
     try:
         results = store.search(symbol)
         if results:
@@ -39,7 +42,7 @@ def enrich_signal_from_memory(store: GovernedMemoryStore, symbol: str) -> Option
         return None
 
 
-def get_exchange_quality(store: GovernedMemoryStore, exchange: str) -> Optional[str]:
+def get_exchange_quality(store: GovernedMemoryStore, exchange: str) -> str | None:
     try:
         node = store.read_node(f"exchange_{exchange.lower()}")
         if node and "attributes" in node:

@@ -17,11 +17,12 @@ import hashlib
 import logging
 import os
 import re
-from typing import Any, Optional
+from typing import Any
 
 from .llm_client import LLMClient
-from .memory import LearningMemory, Decision
-from .memory.experience import Source, Method, Artifact as MemArtifact
+from .memory import Decision, LearningMemory
+from .memory.experience import Artifact as MemArtifact
+from .memory.experience import Method, Source
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +125,7 @@ class GeneratorEngine:
         self,
         spec: Any,
         target_dir: str,
-        repair_context: Optional[str] = None,
+        repair_context: str | None = None,
     ) -> list[str]:
         """Generate project files per governed pipeline.
 
@@ -241,7 +242,7 @@ class GeneratorEngine:
             for rel_path in generated_files:
                 if rel_path.endswith(".go") and not rel_path.endswith("_test.go"):
                     abs_path = os.path.join(target_dir, rel_path)
-                    with open(abs_path, "r") as f:
+                    with open(abs_path) as f:
                         main_code = f.read()
                     test_prompt = (
                         "Generate ONLY Go table-driven tests for this code.\n"

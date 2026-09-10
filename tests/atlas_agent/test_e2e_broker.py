@@ -1,4 +1,5 @@
 import pytest
+
 """End-to-End Integration Test: Python → Go Broker.
 Verifies that Python can create an Order, wrap it in an EngineMessage,
 and successfully publish to the Go Message Broker /publish endpoint.
@@ -6,10 +7,11 @@ and successfully publish to the Go Message Broker /publish endpoint.
 Prerequisites: Go Broker must be running on localhost:8090
 """
 import json
-import urllib.request
-import urllib.error
 import sys
-from atlas_agent.models import Order, OrderSide, OrderType, EngineMessage
+import urllib.error
+import urllib.request
+
+from atlas_agent.models import EngineMessage, Order, OrderSide, OrderType
 
 BROKER_URL = "http://localhost:8090/publish"
 

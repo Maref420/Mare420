@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import json
 import subprocess
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-import pytest
 
 from intelligence.agent_control_plane.audit.memory_sink import InMemoryAuditSink
 from intelligence.agent_control_plane.audit.models import AuditResult
@@ -59,7 +57,7 @@ def make_rust_style_envelope(payload: dict) -> bytes:
         "contract_version": "1.0",
         "message_type": "memory.experience.v1",
         "source_engine": "rust_engine",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "payload": payload,
         "metadata": {
             "specification_id": "memory-experience-event-v1",

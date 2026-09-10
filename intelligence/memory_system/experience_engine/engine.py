@@ -16,7 +16,7 @@ Rules:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from intelligence.agent_control_plane.audit.interface import AuditSink
@@ -71,7 +71,7 @@ class ExperienceEngine:
         record = MemoryRecord(
             memory_id=str(uuid.uuid4()),
             memory_type=MemoryType.EPISODIC,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content={
                 "event_type": "execution_outcome",
                 "order_id": order_id,
@@ -112,7 +112,7 @@ class ExperienceEngine:
         record = MemoryRecord(
             memory_id=str(uuid.uuid4()),
             memory_type=MemoryType.EPISODIC,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content={
                 "event_type": "risk_assessment",
                 "assessment_type": assessment_type,
@@ -151,7 +151,7 @@ class ExperienceEngine:
         record = MemoryRecord(
             memory_id=str(uuid.uuid4()),
             memory_type=MemoryType.EPISODIC,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             content={
                 "event_type": "agent_decision",
                 "decision_type": decision_type,
@@ -181,7 +181,7 @@ class ExperienceEngine:
                 event_type=AuditEventType.MEMORY_STORE,
                 operation_id=operation_id,
                 agent_id=agent_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 action=AuditAction.COMPLETED,
                 resource=record.memory_id,
                 result=AuditResult.SUCCESS,
@@ -195,7 +195,7 @@ class ExperienceEngine:
                 event_type=AuditEventType.MEMORY_STORE,
                 operation_id=operation_id,
                 agent_id=agent_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 action=AuditAction.FAILED,
                 resource=record.memory_id,
                 result=AuditResult.FAILURE,

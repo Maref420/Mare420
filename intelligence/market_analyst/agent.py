@@ -6,10 +6,9 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
 
-from intelligence.research_agent.models import ForensicsSignal
 from intelligence.research_agent.arb_models import ArbitragePath
+from intelligence.research_agent.models import ForensicsSignal
 
 from .models import AnalystDecision, MarketAnalysis
 
@@ -31,7 +30,7 @@ class MarketAnalystAgent:
     def analyze(
         self,
         forensics: ForensicsSignal,
-        arb_paths: Optional[list[ArbitragePath]] = None,
+        arb_paths: list[ArbitragePath] | None = None,
         trace_id: str = "",
     ) -> MarketAnalysis:
         """Produce unified MarketAnalysis from forensics and optional arb paths."""
@@ -39,7 +38,7 @@ class MarketAnalystAgent:
 
         effective_trace = trace_id if trace_id else forensics.trace_id
 
-        has_arb = arb_paths is not None and len(arb_paths) > 0
+        arb_paths is not None and len(arb_paths) > 0
         profitable_arbs = [p for p in (arb_paths or []) if p.profitable]
         arb_profitable = len(profitable_arbs) > 0
         best_weight = min((p.net_weight for p in profitable_arbs), default=0.0)

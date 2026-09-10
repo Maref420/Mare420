@@ -6,7 +6,8 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from .protocol import (
     AgentMessage,
@@ -37,12 +38,12 @@ class MemoryGraphAgent:
         self._store = store
         self._agent_id = agent_id
         self._dedup_window_ns = dedup_window_ns
-        self._handlers: dict[str, Callable[[SignalNode], Optional[SignalNode]]] = {}
+        self._handlers: dict[str, Callable[[SignalNode], SignalNode | None]] = {}
 
     def register_handler(
         self,
         entity_type: str,
-        handler: Callable[[SignalNode], Optional[SignalNode]],
+        handler: Callable[[SignalNode], SignalNode | None],
     ) -> None:
         """Register a handler function for a specific signal type."""
         self._handlers[entity_type] = handler
@@ -187,7 +188,7 @@ class MemoryGraphAgent:
 
     def get_messages(
         self,
-        message_type: Optional[str] = None,
+        message_type: str | None = None,
     ) -> list[dict[str, Any]]:
         """Retrieve messages addressed to this agent."""
         try:

@@ -22,7 +22,6 @@ __all__ = ['CodePatcher', 'PatchTarget', 'PatchResult']
 import ast
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +159,7 @@ class CodePatcher:
 
     def apply_patch(self, original_code: str, target: PatchTarget, patched_section: str) -> str:
         """Apply a surgical patch to the original code.
-        
+
         For function/class targets, replaces the ENTIRE block (signature + body).
         For single-line targets, replaces just that line.
         """
@@ -173,7 +172,7 @@ class CodePatcher:
         # For function/class targets, find the actual end of the block
         if target.issue_type in ("missing_type_hints", "missing_docstring"):
             # Parse the patched section to determine how many lines it spans
-            patched_lines = patched_clean.splitlines()
+            patched_clean.splitlines()
             # Replace from start_idx to start_idx + len(patched_lines)
             # But also need to remove the old function body
             # Strategy: replace from line_start to the end of the original block
@@ -189,10 +188,8 @@ class CodePatcher:
         result_lines = result.splitlines(keepends=True)
         deduped = []
         for i, line in enumerate(result_lines):
-            if i > 0 and line.strip() and line == result_lines[i - 1]:
-                # Check if this is a real duplicate (not intentional)
-                if line.strip().startswith("return ") or line.strip().startswith("raise "):
-                    continue  # Skip duplicate
+            if i > 0 and line.strip() and line == result_lines[i - 1] and not (line.strip().startswith("return ") or line.strip().startswith("raise ")):
+                continue  # Skip duplicate
             deduped.append(line)
 
         return "".join(deduped)

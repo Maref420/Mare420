@@ -1,6 +1,6 @@
-import urllib.request
-import urllib.parse
 import json
+import urllib.parse
+import urllib.request
 
 BASE_URL = "<http://127.0.0.1:8000>"
 
@@ -9,7 +9,7 @@ def create_user(username, password):
         "username": username,
         "password": password
     }).encode("utf-8")
-    
+
     req = urllib.request.Request(BASE_URL + "/users/", data=data, method="POST")
     try:
         with urllib.request.urlopen(req) as response:
@@ -26,7 +26,7 @@ def login(username, password):
         "username": username,
         "password": password
     }).encode("utf-8")
-    
+
     req = urllib.request.Request(BASE_URL + "/token", data=data, method="POST")
     try:
         with urllib.request.urlopen(req) as response:
@@ -48,17 +48,17 @@ def get_protected_resource(token, endpoint):
 if __name__ == "__main__":
     print("1. Creating user 'admin' with password 'test_password'...")
     create_user("admin", "test_password")
-    
+
     print("\n2. Logging in...")
     token_data = login("admin", "test_password")
     if token_data:
         token = token_data.get("access_token")
         print("   Success! Token received.")
-        
+
         print("\n3. Getting user info...")
         user_info = get_protected_resource(token, "/users/me")
         print(f"   {user_info}")
-        
+
         print("\n4. Getting items...")
         items = get_protected_resource(token, "/items/")
         print(f"   {items}")

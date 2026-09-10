@@ -14,7 +14,7 @@ Governed by:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from intelligence.agent_control_plane.audit.models import (
@@ -65,7 +65,7 @@ def log_strategy_signal_received(
             event_type=AuditEventType.STRATEGY_SIGNAL_RECEIVED,
             operation_id=operation_id or str(uuid.uuid4()),
             agent_id=event.source_agent,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             action=AuditAction.COMPLETED,
             resource=f"strategy_signal:{event.event_id}",
             result=AuditResult.SUCCESS,
@@ -122,7 +122,7 @@ def log_strategy_signal_rejected(
             event_type=AuditEventType.STRATEGY_SIGNAL_RECEIVED,
             operation_id=operation_id or str(uuid.uuid4()),
             agent_id=source_agent,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             action=AuditAction.FAILED,
             resource=f"strategy_signal:{event_id}",
             result=AuditResult.FAILURE,

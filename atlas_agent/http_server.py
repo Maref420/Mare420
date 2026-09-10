@@ -19,9 +19,9 @@ import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
+from atlas_agent.auth import AuthMiddleware
 from atlas_agent.engine_ipc_client import IPCClient
 from foundation.metrics.python_metrics import Counter, Gauge, Histogram, MetricsRegistry
-from atlas_agent.auth import AuthMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +130,7 @@ class AgentHTTPRequestHandler(BaseHTTPRequestHandler):
         status_code = 500
 
         # Auth check
-        req_headers = {k: v for k, v in self.headers.items()}
+        req_headers = dict(self.headers.items())
         allowed, auth_err = _auth_middleware.check(req_headers, path, trace_id)
         if not allowed and auth_err is not None:
             self._send_json(auth_err["http_status"], auth_err, trace_id)

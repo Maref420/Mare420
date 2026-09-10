@@ -12,10 +12,7 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from intelligence.strategy_intelligence.contract_adapter import (
-    ContractValidationError,
     StrategySignalEventV1,
 )
 from intelligence.strategy_intelligence.strategy_audit_logger import (

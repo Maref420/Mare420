@@ -9,7 +9,6 @@ Policy: governance/policies/python-policy.yaml
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 
 from intelligence.strategy_intelligence.contract_adapter import (
     StrategySignalEventV1,

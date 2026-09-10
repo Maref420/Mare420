@@ -41,9 +41,9 @@ class QualityScore:
     completeness: float = 0.0    # 0.0-1.0: has required components
     style: float = 0.0           # 0.0-1.0: follows conventions
     overall: float = 0.0         # Weighted average
-    
+
     PASS_THRESHOLD = 0.8
-    
+
     def compute_overall(self) -> float:
         self.overall = (
             self.syntax * 0.35 +
@@ -52,7 +52,7 @@ class QualityScore:
             self.style * 0.15
         )
         return self.overall
-    
+
     @property
     def passed(self) -> bool:
         return self.overall >= self.PASS_THRESHOLD
@@ -83,23 +83,23 @@ class LoopMetrics:
     scores_by_attempt: dict[int, list[float]] = field(default_factory=dict)
     common_failures: dict[str, int] = field(default_factory=dict)
     avg_latency: float = 0.0
-    
+
     @property
     def success_rate(self) -> float:
         return self.successful_runs / max(self.total_runs, 1)
-    
+
     @property
     def avg_attempts_per_success(self) -> float:
         return self.total_attempts / max(self.successful_runs, 1)
-    
+
     def record_attempt(self, attempt: int, score: float) -> None:
         if attempt not in self.scores_by_attempt:
             self.scores_by_attempt[attempt] = []
         self.scores_by_attempt[attempt].append(score)
-    
+
     def record_failure(self, error_category: str) -> None:
         self.common_failures[error_category] = self.common_failures.get(error_category, 0) + 1
-    
+
     def summary(self) -> dict:
         return {
             "total_runs": self.total_runs,
@@ -116,15 +116,15 @@ class LoopMetrics:
 
 class SelfCorrectingLoop:
     """Professional self-correcting code generation loop."""
-    
+
     MAX_ATTEMPTS = 5
     PASS_THRESHOLD = 0.8
-    
+
     def __init__(self) -> None:
         self.metrics = LoopMetrics()
         self.patcher = CodePatcher()
         self._attempt_history: list[AttemptRecord] = []
-    
+
     def determine_strategy(self, attempt: int, previous_errors: list[str]) -> RepairStrategy:
         """Determine repair strategy based on attempt number and error pattern."""
         if attempt <= 2:
@@ -133,7 +133,7 @@ class SelfCorrectingLoop:
             return RepairStrategy.REWRITE
         else:
             return RepairStrategy.DIFFERENT_PROMPT
-    
+
     def build_structured_repair_context(
         self,
         previous_code: str,
@@ -145,7 +145,7 @@ class SelfCorrectingLoop:
     ) -> str:
         """Build rich, structured repair context for LLM."""
         parts = []
-        
+
         # Section 1: Strategy instruction
         if strategy == RepairStrategy.PATCH:
             parts.append(
@@ -162,27 +162,27 @@ class SelfCorrectingLoop:
                 "REPAIR STRATEGY: DIFFERENT APPROACH — Previous attempts failed. "
                 "Try a fundamentally different implementation approach."
             )
-        
+
         # Section 2: Previous code (for PATCH strategy)
         if strategy == RepairStrategy.PATCH and previous_code:
             parts.append(f"\nPREVIOUS CODE (fix errors in this code):\n```\n{previous_code}\n```")
-        
+
         # Section 3: Specific errors with line numbers
         if errors:
             parts.append("\nERRORS TO FIX:")
             for i, error in enumerate(errors, 1):
                 parts.append(f"  {i}. {error}")
-        
+
         # Section 4: Security findings
         if security_findings:
             parts.append("\nSECURITY ISSUES TO FIX:")
             for finding in security_findings:
                 parts.append(f"  - {finding}")
-        
+
         # Section 5: Anti-patterns from memory
         if anti_patterns:
             parts.append(f"\nANTI-PATTERNS TO AVOID: {', '.join(anti_patterns)}")
-        
+
         # Section 6: Attempt history (what was already tried)
         if attempt_history:
             parts.append("\nPREVIOUS ATTEMPTS (do NOT repeat these approaches):")
@@ -193,9 +193,9 @@ class SelfCorrectingLoop:
                     f"score={record.quality_score.overall:.2f}, "
                     f"errors={len(record.errors)}"
                 )
-        
+
         return "\n".join(parts)
-    
+
     def compute_quality_score(
         self,
         syntax_passed: bool,
@@ -205,10 +205,10 @@ class SelfCorrectingLoop:
     ) -> QualityScore:
         """Compute multi-dimensional quality score."""
         score = QualityScore()
-        
+
         # Syntax: binary
         score.syntax = 1.0 if syntax_passed else 0.0
-        
+
         # Security: 1.0 = no findings, 0.0 = critical findings
         critical = sum(1 for f in security_findings if hasattr(f, 'severity') and f.severity.value == "critical")
         high = sum(1 for f in security_findings if hasattr(f, 'severity') and f.severity.value == "high")
@@ -218,20 +218,20 @@ class SelfCorrectingLoop:
             score.security = 0.5
         else:
             score.security = 1.0
-        
+
         # Completeness: has files generated
         score.completeness = min(1.0, len(generated_files) / max(1, 1))
-        
+
         # Style: basic checks
         score.style = 1.0  # Default; could be enhanced with linter integration
-        
+
         score.compute_overall()
         return score
-    
+
     def should_escalate_model(self, attempt: int) -> bool:
         """Determine if we should switch to fallback model."""
         return attempt >= 3
-    
+
     def record_outcome(
         self,
         success: bool,
@@ -242,17 +242,17 @@ class SelfCorrectingLoop:
         """Record loop outcome for metrics."""
         self.metrics.total_runs += 1
         self.metrics.total_attempts += attempts
-        
+
         if success:
             self.metrics.successful_runs += 1
         else:
             self.metrics.failed_runs += 1
             for cat in failure_categories:
                 self.metrics.record_failure(cat)
-        
+
         for i in range(1, attempts + 1):
             self.metrics.record_attempt(i, final_score if i == attempts else 0.0)
-    
+
 
     def attempt_patch_repair(
         self,
@@ -261,26 +261,26 @@ class SelfCorrectingLoop:
         llm_client: Any,
     ) -> tuple[str, bool]:
         """EXPERIMENTAL: Attempt surgical patch repair.
-        
+
         NOTE: Current LLMs cannot reliably edit small code sections.
         They tend to regenerate entire files when asked to patch.
         This method is kept for future evaluation but NOT used in production loop.
         Full regeneration with structured repair context is more reliable.
-        
+
         Returns (patched_code, success).
         Only works for Python with AST-analyzable issues.
         Falls back to full regeneration if patching fails.
         """
         if language != "python":
             return code, False  # Patching only supported for Python currently
-        
+
         targets = self.patcher.analyze_python(code)
         if not targets:
             return code, False  # No analyzable targets
-        
+
         patched_code = code
         patches_applied = 0
-        
+
         for target in targets[:3]:  # Max 3 patches per attempt
             prompt = self.patcher.build_patch_prompt(target, language)
             try:
@@ -291,7 +291,7 @@ class SelfCorrectingLoop:
             except Exception as e:
                 logger.warning("Patch failed for %s: %s", target.issue_type, e)
                 continue
-        
+
         # Validate patched code
         if language == "python":
             import ast as ast_module
@@ -301,7 +301,7 @@ class SelfCorrectingLoop:
             except SyntaxError:
                 logger.warning("Patched code has syntax errors — reverting")
                 return code, False
-        
+
         return patched_code, patches_applied > 0
 
     def get_metrics(self) -> dict:

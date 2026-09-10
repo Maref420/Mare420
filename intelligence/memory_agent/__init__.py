@@ -1,22 +1,22 @@
 # MODULE: atlas-memory-agent
 # GOVERNANCE: Matrix C - Python Intelligence Layer
-from .store import GovernedMemoryStore, MemoryStoreError, CircuitState
 from .bridge import RustIpcBridge
 from .integration import (
     enrich_signal_from_memory,
-    write_signal_to_memory,
     get_exchange_quality,
     set_exchange_quality,
+    write_signal_to_memory,
 )
-from .replay import AgentSelfAudit, IpcReplayClient
+from .neural import NeuralRouter, SynapseConfig
+from .orchestrator import MemoryGraphAgent
 from .protocol import (
+    AgentMessage,
     SignalNode,
     SignalPriority,
     SignalStatus,
-    AgentMessage,
 )
-from .orchestrator import MemoryGraphAgent
-from .neural import NeuralRouter, SynapseConfig
+from .replay import AgentSelfAudit, IpcReplayClient
+from .store import CircuitState, GovernedMemoryStore, MemoryStoreError
 
 __all__ = [
     "GovernedMemoryStore",
