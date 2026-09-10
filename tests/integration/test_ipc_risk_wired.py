@@ -3,7 +3,7 @@
 Data Flow:
 1. Start Rust IPC server (wired to assess_order) as subprocess
 2. Python IPCClient sends risk assessment request
-3. Server calls atlas_risk_engine::assess_order() 
+3. Server calls atlas_risk_engine::assess_order()
 4. Returns RiskAssessment with approved/rejected status
 5. Verify real risk logic executed (not echo)
 

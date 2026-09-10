@@ -12,9 +12,8 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Optional
 
-from .experience import Experience, Decision, Source, Method, Artifact, Outcome
+from .experience import Artifact, Decision, Experience, Method, Outcome, Source
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +38,7 @@ class LearningMemory:
         size_mb = self.path.stat().st_size / (1024 * 1024)
         if size_mb > MAX_SIZE_MB:
             self._prune()
-        with open(self.path, "r") as f:
+        with open(self.path) as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -75,7 +74,7 @@ class LearningMemory:
 
     def record(self, source: Source, method: Method, artifact: Artifact,
                decision: Decision, reason: str, quality_score: float,
-               anti_patterns: Optional[list[str]] = None) -> Experience:
+               anti_patterns: list[str] | None = None) -> Experience:
         exp = Experience(
             id=Experience.generate_id(),
             ts=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from intelligence.agent_control_plane.audit.interface import AuditSink
@@ -171,9 +171,9 @@ class MemoryForgettingEngine:
             return False
 
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
 
-        if expires_at > datetime.now(timezone.utc):
+        if expires_at > datetime.now(UTC):
             return False
 
         return self.forget(
@@ -229,7 +229,7 @@ class MemoryForgettingEngine:
                 event_type=AuditEventType.MEMORY_FORGET,
                 operation_id=operation_id,
                 agent_id=agent_id,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 action=AuditAction.REQUESTED,
                 resource=memory_id,
                 result=result,

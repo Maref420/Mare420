@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 import time
-from enum import Enum
-from typing import Any, Optional
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
 
-class CircuitState(str, Enum):
+class CircuitState(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -120,8 +120,8 @@ class GovernedMemoryStore:
         entity_type: str,
         attributes: dict[str, str],
         ttl_ns: int = 0,
-        override_source_uri: Optional[str] = None,
-        override_agent_id: Optional[str] = None,
+        override_source_uri: str | None = None,
+        override_agent_id: str | None = None,
     ) -> dict[str, Any]:
         self._check_circuit()
 
@@ -175,7 +175,7 @@ class GovernedMemoryStore:
                 "INT_INVARIANT_BROKEN", f"unexpected error: {e}", False
             ) from e
 
-    def read_node(self, node_id: str) -> Optional[dict[str, Any]]:
+    def read_node(self, node_id: str) -> dict[str, Any] | None:
         self._check_circuit()
         self._read_count += 1
         now = self._now_ns()

@@ -1,18 +1,16 @@
-from typing import Any, Optional
-from enum import Enum
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID, uuid4
+
 """
 Data Models for ATLAS AI Agent
 """
 
-__all__ = ['Requirement', 'Language', 'SecurityLevel', 'ArtifactStatus', 'GeneratedArtifact', 'ApprovalStatus', 'DeploymentRecord']
+__all__ = ['Requirement', 'Language', 'SecurityLevel', 'ApprovalStatus', 'DeploymentRecord']
 
-from datetime import datetime
 from enum import StrEnum
-from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class Language(StrEnum):
@@ -59,15 +57,6 @@ class Specification(BaseModel):
     approved_by: str | None = None
     approved_at: datetime | None = None
 
-class SecurityLevel(str, Enum):
-    """Enum governed by security-finding-v1.json severity_enum rule."""
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
-    INFO = "info"
-
-
 class SecurityFinding(BaseModel):
     """Security finding matching security-finding-v1.json contract.
 
@@ -82,7 +71,7 @@ class SecurityFinding(BaseModel):
     category: str = Field(min_length=1)
     message: str = Field(min_length=1)
     file_path: str = Field(min_length=1)
-    line_number: Optional[int] = Field(default=None, ge=0)
+    line_number: int | None = Field(default=None, ge=0)
     suggestion: str = Field(min_length=1)
 
     @field_validator("file_path")
@@ -133,7 +122,7 @@ class AuditLog(BaseModel):
     event_type: str = Field(min_length=1)
     operation_id: str = Field(min_length=1)
     agent_id: str = Field(min_length=1)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     action: str = Field(min_length=1)
     resource: str = Field(min_length=1)
     result: str = Field(min_length=1)
@@ -178,11 +167,11 @@ class Order(BaseModel):
     side: OrderSide
     quantity: float = Field(gt=0)
     order_type: OrderType
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     agent_id: str = Field(min_length=1)
-    price: Optional[float] = Field(default=None, gt=0)
-    stop_price: Optional[float] = Field(default=None, gt=0)
-    time_in_force: Optional[TimeInForce] = None
+    price: float | None = Field(default=None, gt=0)
+    stop_price: float | None = Field(default=None, gt=0)
+    time_in_force: TimeInForce | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("symbol", "agent_id")
@@ -214,7 +203,7 @@ class EngineMessage(BaseModel):
     contract_version: str = Field(default="1.0", pattern=r"^\d+\.\d+$")
     message_type: str = Field(min_length=1)
     source_engine: str = Field(min_length=1)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     payload: dict[str, Any]
     metadata: MessageMetadata
 
@@ -240,9 +229,9 @@ class DeploymentRecord(BaseModel):
     target_path: str = Field(min_length=1)
     status: ApprovalStatus
     timestamp: float
-    backup_path: Optional[str] = None
+    backup_path: str | None = None
     post_deploy_validation: dict = Field(default_factory=dict)
     audit_event_id: str = Field(min_length=1)
-    rollback_reason: Optional[str] = None
+    rollback_reason: str | None = None
 
     model_config = ConfigDict(frozen=True)

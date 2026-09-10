@@ -16,10 +16,9 @@ __all__ = ['LLMCache']
 import hashlib
 import json
 import logging
-import time
 import threading
+import time
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ class LLMCache:
         if not self.path.exists():
             return
         try:
-            with open(self.path, "r") as f:
+            with open(self.path) as f:
                 data = json.load(f)
             # Filter expired entries
             now = time.time()
@@ -65,7 +64,7 @@ class LLMCache:
         raw = f"{model}:{temperature}:{prompt}"
         return hashlib.sha256(raw.encode()).hexdigest()[:24]
 
-    def get(self, prompt: str, model: str, temperature: float) -> Optional[str]:
+    def get(self, prompt: str, model: str, temperature: float) -> str | None:
         """Get cached response. Returns None on miss or expiry."""
         key = self._make_key(prompt, model, temperature)
         with self._lock:

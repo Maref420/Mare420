@@ -10,14 +10,14 @@ import threading
 import time
 import uuid
 from typing import Any
-from urllib.request import Request, urlopen
 from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 import pytest
 
 from atlas_agent.http_server import (
-    AgentHTTPServer,
     AgentHTTPRequestHandler,
+    AgentHTTPServer,
     create_error_envelope,
 )
 
@@ -88,7 +88,6 @@ class TestHealthEndpoints:
         assert body["status"] == "alive"
 
     def test_ready_returns_200_when_deps_exist(self, server: dict, tmp_path: Any) -> None:
-        import os
         from unittest.mock import patch
         with patch("os.path.exists", return_value=True), \
              patch("os.path.isdir", return_value=True), \

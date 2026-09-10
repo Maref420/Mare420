@@ -11,8 +11,8 @@ import socket
 import threading
 import time
 from typing import Any
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 import pytest
 
@@ -37,8 +37,9 @@ def reset_auth():
 def auth_server():
     """Start server with auth enabled."""
     from unittest.mock import patch
-    from atlas_agent.http_server import AgentHTTPServer, AgentHTTPRequestHandler
+
     import atlas_agent.http_server as http_mod
+    from atlas_agent.http_server import AgentHTTPRequestHandler, AgentHTTPServer
 
     port = _free_port()
 
@@ -143,7 +144,7 @@ class TestRateLimiting:
     def test_burst_limit_triggers_429(self, auth_server: dict) -> None:
         port = auth_server["port"]
         last_status = 200
-        for i in range(10):
+        for _i in range(10):
             status, raw = _req(
                 port, "POST", "/assess",
                 body=json.dumps({"order": {"symbol": "ETH", "qty": 1}}),

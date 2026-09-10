@@ -75,7 +75,7 @@ class IPCClient:
             result: dict[str, Any] = json.loads(resp_data.decode("utf-8"))
             return result
 
-        except socket.timeout as e:
+        except TimeoutError as e:
             self.close()
             raise ConnectionError("socket operation timed out") from e
         except OSError as e:
@@ -88,14 +88,11 @@ class IPCClient:
     def close(self) -> None:
         """Close the socket connection safely."""
         if self._sock is not None:
-            try:
+            import contextlib
+            with contextlib.suppress(OSError):
                 self._sock.shutdown(socket.SHUT_RDWR)
-            except OSError:
-                pass  # already closed or not connected
-            try:
+            with contextlib.suppress(OSError):
                 self._sock.close()
-            except OSError:
-                pass
             self._sock = None
 
     def _recv_exact(self, n: int) -> bytes:

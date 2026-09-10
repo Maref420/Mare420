@@ -3,13 +3,17 @@ Source: contracts/schemas/execution/order-v1.json
         governance/schemas/engine-contract-v1.json
 """
 import json
+
 import pytest
-from uuid import uuid4
-from datetime import datetime, timezone
+
 from atlas_agent.models import (
-    Order, OrderSide, OrderType, TimeInForce,
-    EngineMessage, MessageMetadata,
+    EngineMessage,
+    MessageMetadata,
+    Order,
+    OrderSide,
+    OrderType,
 )
+
 
 def make_valid_order() -> Order:
     return Order(

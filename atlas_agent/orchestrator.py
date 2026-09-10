@@ -1,6 +1,6 @@
+import logging
 import os
 import time
-import logging
 
 logger = logging.getLogger(__name__)
 """
@@ -10,13 +10,13 @@ Coordinates the workflow between Governance, Generator, and Validator
 
 __all__ = ['Orchestrator']
 
+from .deployment import DeploymentEngine
 from .generator import GeneratorEngine
 from .governance import GovernanceEngine
-from .models import ApprovalStatus, Artifact, Requirement, SecurityLevel, Specification
-from .validator import ValidatorEngine
-from .deployment import DeploymentEngine
-from .self_correcting_loop import SelfCorrectingLoop, QualityScore
 from .memory import LearningMemory
+from .models import ApprovalStatus, Artifact, Requirement, SecurityLevel, Specification
+from .self_correcting_loop import QualityScore, SelfCorrectingLoop
+from .validator import ValidatorEngine
 
 
 class Orchestrator:
@@ -142,7 +142,8 @@ class Orchestrator:
             for sf in source_files:
                 fp = os.path.join(requirement.target_folder, sf)
                 if os.path.exists(fp):
-                    code_len += len(open(fp).read())
+                    with open(fp) as fh:
+                        code_len += len(fh.read())
 
             attempt_record = AttemptRecord(
                 attempt_number=attempt,

@@ -5,16 +5,16 @@ No external services required (sqlite3 is stdlib).
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
+from infrastructure.database.sqlite_memory_storage import SqliteMemoryStorage
 from intelligence.memory_system.models.memory_record import (
     MemoryRecord,
     MemoryType,
     ValidationStatus,
 )
-from infrastructure.database.sqlite_memory_storage import SqliteMemoryStorage
 
 
 def _make_record(
@@ -25,7 +25,7 @@ def _make_record(
     return MemoryRecord(
         memory_id=memory_id,
         memory_type=memory_type,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content=content,
         metadata={"source": "test"},
         validation_status=ValidationStatus.VALIDATED,

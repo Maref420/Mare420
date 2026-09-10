@@ -3,18 +3,18 @@
 __all__ = ["LLMClient", "ResourceConfig", "CircuitBreaker", "ProviderStatus"]
 
 import json
+import logging
 import os
 import random
-import time
-import logging
 import threading
-import urllib.request
+import time
 import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
-from typing import Optional
 from enum import Enum
 
 from dotenv import load_dotenv
+
 from .llm_cache import LLMCache
 from .restriction_guard import RestrictionGuard
 
@@ -74,7 +74,7 @@ class CircuitBreaker:
 class LLMClient:
     """Production-grade LLM client using 0G AI Router only."""
 
-    def __init__(self, config: Optional[ResourceConfig] = None) -> None:
+    def __init__(self, config: ResourceConfig | None = None) -> None:
         self.config = config or ResourceConfig()
         self._circuit_breaker = CircuitBreaker()
         self._request_semaphore = threading.Semaphore(self.config.max_concurrent_requests)
@@ -107,7 +107,7 @@ class LLMClient:
                 raise RuntimeError(f"Rate limit exceeded: {self.config.rate_limit_rpm} RPM")
             self._request_timestamps.append(now)
 
-    def _check_restricted_content(self, requirement: str) -> Optional[str]:
+    def _check_restricted_content(self, requirement: str) -> str | None:
         decision = self._guard.check_request(requirement)
         if not decision.allowed:
             return decision.category.value if decision.category else "restricted"

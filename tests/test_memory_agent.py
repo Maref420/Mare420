@@ -6,14 +6,14 @@ import time
 
 import pytest
 
+from intelligence.memory_agent.integration import (
+    enrich_signal_from_memory,
+    write_signal_to_memory,
+)
 from intelligence.memory_agent.store import (
     CircuitState,
     GovernedMemoryStore,
     MemoryStoreError,
-)
-from intelligence.memory_agent.integration import (
-    enrich_signal_from_memory,
-    write_signal_to_memory,
 )
 from intelligence.research_agent.models import ForensicsSignal
 
@@ -271,7 +271,8 @@ class TestIntegrationHelpers:
 
     def test_set_and_get_exchange_quality(self) -> None:
         from intelligence.memory_agent.integration import (
-            get_exchange_quality, set_exchange_quality,
+            get_exchange_quality,
+            set_exchange_quality,
         )
         store = _make_store()
         assert set_exchange_quality(store, "Bybit", "DEGRADED") is True
@@ -381,113 +382,11 @@ class TestIpcReplayCommands:
             bridge.stop()
 
 
-class TestAgentSelfAudit:
-    def test_record_and_search_lesson(self) -> None:
-        from intelligence.memory_agent.replay import AgentSelfAudit
-        store = _make_store()
-        audit = AgentSelfAudit(store)
-        assert audit.record_lesson(
-            agent_id="analyst",
-            decision_node_id="dec_001",
-            lesson="Never ignore spoofing with confidence > 0.8",
-            context={"signal": "sig_001"},
-        ) is True
-        lessons = audit.search_lessons("spoofing")
-        assert len(lessons) >= 1
-        assert "spoofing" in lessons[0]["attributes"]["lesson"]
-
-    def test_audit_decision_loss(self) -> None:
-        from intelligence.memory_agent.replay import AgentSelfAudit
-        store = _make_store()
-        audit = AgentSelfAudit(store)
-        store.write_node(
-            node_id="dec_loss_1",
-            entity_type="decision",
-            attributes={"action": "HOLD"},
-            ttl_ns=0,
-        )
-        lesson = audit.audit_decision("dec_loss_1", "loss", "analyst")
-        assert lesson is not None
-        assert "loss" in lesson
-
-    def test_audit_decision_win_returns_none(self) -> None:
-        from intelligence.memory_agent.replay import AgentSelfAudit
-        store = _make_store()
-        audit = AgentSelfAudit(store)
-        store.write_node(
-            node_id="dec_win_1",
-            entity_type="decision",
-            attributes={"action": "SELL"},
-            ttl_ns=0,
-        )
-        lesson = audit.audit_decision("dec_win_1", "win", "analyst")
-        assert lesson is None
-
-
-class TestIpcReplayCommands:
-    def test_ipc_replay_at(self) -> None:
-        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
-        from intelligence.memory_agent.replay import IpcReplayClient
-        try:
-            _find_ipc_binary()
-        except MemoryStoreError:
-            pytest.skip("Rust IPC binary not built")
-        bridge = RustIpcBridge(response_timeout_secs=2.0)
-        try:
-            bridge.write_node({
-                "node_id": "replay_test", "entity_type": "test",
-                "attributes": {}, "source_uri": "t://v1", "agent_id": "a1",
-                "ttl_ns": 0, "created_at_ns": 100, "updated_at_ns": 100,
-            })
-            client = IpcReplayClient(bridge)
-            result = client.replay_at(200)
-            assert "nodes" in result
-            assert any(n["node_id"] == "replay_test" for n in result["nodes"])
-        finally:
-            bridge.stop()
-
-    def test_ipc_causal_trace(self) -> None:
-        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
-        from intelligence.memory_agent.replay import IpcReplayClient
-        try:
-            _find_ipc_binary()
-        except MemoryStoreError:
-            pytest.skip("Rust IPC binary not built")
-        bridge = RustIpcBridge(response_timeout_secs=2.0)
-        try:
-            bridge.write_node({
-                "node_id": "trace_root", "entity_type": "signal",
-                "attributes": {}, "source_uri": "t://v1", "agent_id": "a1",
-                "ttl_ns": 0, "created_at_ns": 100, "updated_at_ns": 100,
-            })
-            client = IpcReplayClient(bridge)
-            chain = client.causal_trace("trace_root")
-            assert isinstance(chain, list)
-            assert len(chain) >= 1
-        finally:
-            bridge.stop()
-
-    def test_ipc_diff(self) -> None:
-        from intelligence.memory_agent.bridge import RustIpcBridge, _find_ipc_binary
-        from intelligence.memory_agent.replay import IpcReplayClient
-        try:
-            _find_ipc_binary()
-        except MemoryStoreError:
-            pytest.skip("Rust IPC binary not built")
-        bridge = RustIpcBridge(response_timeout_secs=2.0)
-        try:
-            client = IpcReplayClient(bridge)
-            result = client.diff(100, 200)
-            assert "added" in result
-            assert "removed" in result
-        finally:
-            bridge.stop()
-
-
 class TestProtocol:
     def test_signal_node_creation(self) -> None:
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority, SignalStatus,
+            SignalNode,
+            SignalPriority,
         )
         sig = SignalNode(
             signal_id="sig_001",
@@ -508,7 +407,8 @@ class TestProtocol:
 
     def test_signal_node_roundtrip(self) -> None:
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         sig = SignalNode(
             signal_id="sig_002",
@@ -554,7 +454,8 @@ class TestMemoryGraphAgent:
     def test_publish_and_retrieve_signal(self) -> None:
         from intelligence.memory_agent.orchestrator import MemoryGraphAgent
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         orchestrator = MemoryGraphAgent(store, "research")
@@ -577,7 +478,8 @@ class TestMemoryGraphAgent:
     def test_deduplication_blocks_duplicate(self) -> None:
         from intelligence.memory_agent.orchestrator import MemoryGraphAgent
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         orchestrator = MemoryGraphAgent(store, "research")
@@ -609,7 +511,8 @@ class TestMemoryGraphAgent:
     def test_different_direction_not_duplicate(self) -> None:
         from intelligence.memory_agent.orchestrator import MemoryGraphAgent
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         orchestrator = MemoryGraphAgent(store, "research")
@@ -641,7 +544,8 @@ class TestMemoryGraphAgent:
     def test_get_upstream_signals(self) -> None:
         from intelligence.memory_agent.orchestrator import MemoryGraphAgent
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         research_orch = MemoryGraphAgent(store, "research")
@@ -686,12 +590,13 @@ class TestMemoryGraphAgent:
     def test_register_and_process_handler(self) -> None:
         from intelligence.memory_agent.orchestrator import MemoryGraphAgent
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority, SignalStatus,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         orch = MemoryGraphAgent(store, "analyst")
 
-        def handle_research(sig: SignalNode) -> Optional[SignalNode]:
+        def handle_research(sig: SignalNode) -> SignalNode | None:
             return SignalNode(
                 signal_id=f"decision_{sig.signal_id}",
                 agent_id="analyst",
@@ -760,7 +665,8 @@ class TestNeuralRouter:
     def test_subscribe_and_route(self) -> None:
         from intelligence.memory_agent.neural import NeuralRouter
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         router = NeuralRouter(store)
@@ -790,7 +696,8 @@ class TestNeuralRouter:
     def test_unsubscribe_stops_routing(self) -> None:
         from intelligence.memory_agent.neural import NeuralRouter
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         router = NeuralRouter(store)
@@ -819,7 +726,8 @@ class TestNeuralRouter:
     def test_inhibition_blocks_routing(self) -> None:
         from intelligence.memory_agent.neural import NeuralRouter
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         router = NeuralRouter(store)
@@ -849,7 +757,8 @@ class TestNeuralRouter:
     def test_no_inhibition_allows_routing(self) -> None:
         from intelligence.memory_agent.neural import NeuralRouter
         from intelligence.memory_agent.protocol import (
-            SignalNode, SignalPriority,
+            SignalNode,
+            SignalPriority,
         )
         store = _make_store()
         router = NeuralRouter(store)

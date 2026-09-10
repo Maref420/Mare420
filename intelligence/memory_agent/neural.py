@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
-from .protocol import SignalNode, SignalPriority, SignalStatus
+from .protocol import SignalNode, SignalStatus
 from .store import GovernedMemoryStore, MemoryStoreError
 
 
@@ -49,7 +50,7 @@ class NeuralRouter:
         self._inhibitors: dict[str, list[str]] = {}
         self._lock = threading.Lock()
         self._running = False
-        self._poll_thread: Optional[threading.Thread] = None
+        self._poll_thread: threading.Thread | None = None
         self._last_scan_ns: int = 0
 
     def connect(

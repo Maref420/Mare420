@@ -15,7 +15,6 @@ import time
 import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -33,7 +32,7 @@ class GovernedMemoryRecord:
     """Immutable memory record with full provenance (R06)."""
     id: str
     content: str
-    title: Optional[str]
+    title: str | None
     memory_type: str          # fact|decision|preference|warning
     weight: float             # 0.0–1.0, set by OG enrichment
     source_uri: str           # R03: MANDATORY provenance

@@ -1,12 +1,12 @@
 """PRODUCTION VALIDATION: Measure real E2E latency Python → Go Broker.
 Establishes baseline for future performance regression detection."""
-import json
-import time
-import urllib.request
+import os
 import subprocess
 import sys
-import os
-from atlas_agent.models import Order, OrderSide, OrderType, EngineMessage
+import time
+import urllib.request
+
+from atlas_agent.models import EngineMessage, Order, OrderSide, OrderType
 
 BROKER_URL = "http://localhost:8090/publish"
 HEALTH_URL = "http://localhost:8090/health"
@@ -41,7 +41,7 @@ def test_e2e_latency_baseline():
         payload = msg.model_dump_json().encode("utf-8")
 
         latencies = []
-        for i in range(100):
+        for _i in range(100):
             req = urllib.request.Request(BROKER_URL, data=payload,
                 headers={"Content-Type": "application/json"}, method="POST")
             start = time.perf_counter()

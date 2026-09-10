@@ -4,9 +4,9 @@ Governed by: contracts/schemas/infrastructure/secret-provider-config-v1.json
 ADR-2026-08-30-011
 """
 from __future__ import annotations
-import os
+
 import logging
-from typing import Optional
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ def _load_registry() -> dict:
     return _registry_cache
 
 
-def get_secret(name: str) -> Optional[str]:
+def get_secret(name: str) -> str | None:
     """Retrieve a secret by logical name.
     Currently uses env var backend. Future: Vault/AWS/GCP.
     Returns None if not found and not required.

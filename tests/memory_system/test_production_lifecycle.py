@@ -7,7 +7,7 @@ Not unit tests. Not mocks for satisfaction. Real pipeline validation.
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from intelligence.agent_control_plane.audit.memory_sink import InMemoryAuditSink
@@ -55,7 +55,7 @@ def make_episodic(memory_id: str, content: dict[str, Any] | None = None) -> Memo
     return MemoryRecord(
         memory_id=memory_id,
         memory_type=MemoryType.EPISODIC,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content=content or {"trade": "BTCUSDT", "pnl": -150.0},
         metadata={"source": "execution_engine"},
         validation_status=ValidationStatus.VALIDATED,
@@ -147,11 +147,11 @@ def test_pl3_working_memory_ttl_lifecycle():
     storage, kernel, audit, _, forgetting = make_pipeline()
 
     # Create working memory that expired 1 second ago
-    expired_time = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
+    expired_time = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
     working_expired = MemoryRecord(
         memory_id="work-expired-prod",
         memory_type=MemoryType.WORKING,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content={"context": "active_session"},
         metadata={"expires_at": expired_time},
         validation_status=ValidationStatus.VALIDATED,
@@ -161,11 +161,11 @@ def test_pl3_working_memory_ttl_lifecycle():
     kernel.store(working_expired)
 
     # Create working memory that expires in 1 hour
-    future_time = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    future_time = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
     working_live = MemoryRecord(
         memory_id="work-live-prod",
         memory_type=MemoryType.WORKING,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content={"context": "active_session_2"},
         metadata={"expires_at": future_time},
         validation_status=ValidationStatus.VALIDATED,
@@ -260,7 +260,7 @@ def test_pl5_rejection_at_birth():
     pending = MemoryRecord(
         memory_id="pending-reject",
         memory_type=MemoryType.EPISODIC,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content={"test": True},
         metadata={},
         validation_status=ValidationStatus.PENDING,
@@ -271,7 +271,7 @@ def test_pl5_rejection_at_birth():
     rejected = MemoryRecord(
         memory_id="rejected-reject",
         memory_type=MemoryType.EPISODIC,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content={"test": True},
         metadata={},
         validation_status=ValidationStatus.REJECTED,
@@ -281,14 +281,14 @@ def test_pl5_rejection_at_birth():
 
     try:
         kernel.store(pending)
-        assert False, "kernel.store() should reject PENDING memory"
+        raise AssertionError("kernel.store() should reject PENDING memory")
     except ValueError as e:
         msg = str(e).lower()
         assert "validated" in msg or "rejected" in msg or "persist" in msg, f"Wrong error message: {e}"
 
     try:
         kernel.store(rejected)
-        assert False, "kernel.store() should reject REJECTED memory"
+        raise AssertionError("kernel.store() should reject REJECTED memory")
     except ValueError as e:
         msg = str(e).lower()
         assert "validated" in msg or "rejected" in msg or "persist" in msg, f"Wrong error message: {e}"

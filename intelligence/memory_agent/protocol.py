@@ -7,7 +7,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 
 class SignalPriority(Enum):
@@ -73,7 +73,7 @@ class SignalNode:
         }
 
     @classmethod
-    def from_node_dict(cls, data: dict[str, Any]) -> Optional[SignalNode]:
+    def from_node_dict(cls, data: dict[str, Any]) -> SignalNode | None:
         """Reconstruct SignalNode from MemoryGraph node data."""
         try:
             attrs = dict(data.get("attributes", {}))

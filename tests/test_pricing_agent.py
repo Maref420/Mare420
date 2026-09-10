@@ -2,14 +2,13 @@
 # TEST TYPE: Unit tests
 from __future__ import annotations
 
-import time
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
 from intelligence.pricing_agent.agent import PricingAgent
-from intelligence.pricing_agent.models import AppError, BillingDecision, CustomerRecord, UsageStats
+from intelligence.pricing_agent.models import AppError, UsageStats
 from intelligence.pricing_agent.tiers import evaluate_usage
 
 

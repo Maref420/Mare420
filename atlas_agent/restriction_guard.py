@@ -20,7 +20,6 @@ import re
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ class GuardDecision:
     """Immutable record of a restriction guard decision."""
     allowed: bool
     intent: RequestIntent
-    category: Optional[RestrictionCategory]
+    category: RestrictionCategory | None
     reason: str
     timestamp: float = field(default_factory=time.time)
     prompt_hash: str = ""
@@ -96,32 +95,32 @@ logger.info("§17 rules loaded from contract: %d categories, %d scaffold indicat
 
 def classify_intent(prompt: str) -> RequestIntent:
     """Layer 1: Classify whether request is scaffold or implementation.
-    
+
     Uses regex with word boundaries — no substring false positives.
     Requires >=2 scaffold indicators AND 0 implementation indicators.
     """
     text = prompt.lower()
-    
+
     scaffold_hits = sum(
         1 for pattern in SCAFFOLD_INDICATORS
         if re.search(pattern, text)
     )
-    
+
     impl_hits = sum(
         1 for pattern in IMPLEMENTATION_INDICATORS
         if re.search(pattern, text)
     )
-    
+
     if impl_hits > 0:
         return RequestIntent.IMPLEMENTATION
-    
+
     if scaffold_hits >= 2:
         return RequestIntent.SCAFFOLD
-    
+
     return RequestIntent.AMBIGUOUS
 
 
-def detect_category(prompt: str) -> Optional[RestrictionCategory]:
+def detect_category(prompt: str) -> RestrictionCategory | None:
     """Detect which §17 category a prompt falls into."""
     text = prompt.lower()
     for category, patterns in CATEGORY_PATTERNS.items():
@@ -164,7 +163,7 @@ SCAFFOLD_PATTERNS_PYTHON = [
 
 def validate_output_structure(code: str, language: str) -> tuple[bool, str]:
     """Layer 2: Validate that generated code is actually a scaffold.
-    
+
     Returns (is_valid_scaffold, reason).
     """
     if language == "rust":
@@ -175,16 +174,16 @@ def validate_output_structure(code: str, language: str) -> tuple[bool, str]:
         has_impl = any(re.search(p, code, re.DOTALL) for p in IMPLEMENTATION_PATTERNS_PYTHON)
     else:
         return True, "Non-restricted language"
-    
+
     if has_todo and not has_impl:
         return True, "Valid scaffold: has stubs, no implementation"
-    
+
     if has_impl and not has_todo:
         return False, "REJECTED: contains implementation without stubs"
-    
+
     if has_impl and has_todo:
         return False, "REJECTED: mixed scaffold + implementation"
-    
+
     return False, "REJECTED: no recognizable scaffold markers"
 
 
@@ -194,17 +193,17 @@ def validate_output_structure(code: str, language: str) -> tuple[bool, str]:
 
 class RestrictionGuard:
     """3-layer restriction guard for CONSTITUTION.md §17."""
-    
+
     def __init__(self) -> None:
         self._audit_log: list[GuardDecision] = []
-    
+
     def check_request(self, prompt: str) -> GuardDecision:
         """Layer 1: Check if request should be allowed."""
         prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()[:16]
-        
+
         # Step 1: Detect category
         category = detect_category(prompt)
-        
+
         if category is None:
             decision = GuardDecision(
                 allowed=True,
@@ -216,10 +215,10 @@ class RestrictionGuard:
             )
             self._audit_log.append(decision)
             return decision
-        
+
         # Step 2: Classify intent
         intent = classify_intent(prompt)
-        
+
         if intent == RequestIntent.IMPLEMENTATION:
             decision = GuardDecision(
                 allowed=False,
@@ -232,7 +231,7 @@ class RestrictionGuard:
             self._audit_log.append(decision)
             logger.warning("§17 BLOCK: %s", decision.reason)
             return decision
-        
+
         if intent == RequestIntent.AMBIGUOUS:
             decision = GuardDecision(
                 allowed=False,
@@ -245,7 +244,7 @@ class RestrictionGuard:
             self._audit_log.append(decision)
             logger.warning("§17 BLOCK (ambiguous): %s", decision.reason)
             return decision
-        
+
         # Scaffold intent for restricted category — allow with warning
         decision = GuardDecision(
             allowed=True,
@@ -258,14 +257,14 @@ class RestrictionGuard:
         self._audit_log.append(decision)
         logger.info("§17 SCAFFOLD ALLOW: %s", decision.reason)
         return decision
-    
+
     def validate_output(self, code: str, language: str, decision: GuardDecision) -> GuardDecision:
         """Layer 2: Validate generated output matches scaffold intent."""
         if decision.category is None:
             return decision  # Non-restricted, skip validation
-        
+
         is_valid, reason = validate_output_structure(code, language)
-        
+
         if not is_valid:
             output_decision = GuardDecision(
                 allowed=False,
@@ -278,7 +277,7 @@ class RestrictionGuard:
             self._audit_log.append(output_decision)
             logger.error("§17 L2 BLOCK: %s", reason)
             return output_decision
-        
+
         output_decision = GuardDecision(
             allowed=True,
             intent=decision.intent,
@@ -289,11 +288,11 @@ class RestrictionGuard:
         )
         self._audit_log.append(output_decision)
         return output_decision
-    
+
     def get_audit_trail(self) -> list[GuardDecision]:
         """Return full audit trail for human review."""
         return list(self._audit_log)
-    
+
     def stats(self) -> dict:
         blocked = sum(1 for d in self._audit_log if not d.allowed)
         allowed = sum(1 for d in self._audit_log if d.allowed)

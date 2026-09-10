@@ -18,20 +18,17 @@ from __future__ import annotations
 import json
 from typing import Any
 
-import pytest
-
 from foundation.error import (
-    ErrorEnvelope,
-    val_error,
     auth_error,
     biz_error,
     dep_error,
-    res_error,
-    net_error,
     int_error,
+    net_error,
+    res_error,
     should_retry,
+    val_error,
 )
-from foundation.logger import set_trace_id, get_trace_id
+from foundation.logger import set_trace_id
 
 REQUIRED_SCHEMA_KEYS: list[str] = [
     "trace_id",

@@ -9,17 +9,17 @@ import json
 import socket
 import threading
 import time
-import uuid
-import urllib.request
 import urllib.error
-from unittest.mock import MagicMock, patch
+import urllib.request
+import uuid
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
 from atlas_agent.http_server import (
-    AgentHTTPServer,
     AgentHTTPRequestHandler,
+    AgentHTTPServer,
     create_error_envelope,
 )
 
@@ -215,7 +215,7 @@ class TestErrorHandling:
             live_server["port"], "GET", "/nonexistent",
             headers={"X-Trace-Id": custom},
         )
-        body = json.loads(raw)
+        json.loads(raw)
         returned_header = headers.get("X-Trace-Id") or headers.get("x-trace-id")
         assert returned_header == custom
 

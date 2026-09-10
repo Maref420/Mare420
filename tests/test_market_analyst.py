@@ -2,14 +2,12 @@
 # GOVERNANCE: Test suite for MarketAnalystAgent.
 from __future__ import annotations
 
-import json
-
 import pytest
 
-from intelligence.market_analyst.models import AnalystDecision, MarketAnalysis
 from intelligence.market_analyst.agent import MarketAnalystAgent
-from intelligence.research_agent.models import ForensicsSignal
+from intelligence.market_analyst.models import AnalystDecision, MarketAnalysis
 from intelligence.research_agent.arb_models import ArbitragePath
+from intelligence.research_agent.models import ForensicsSignal
 
 
 def _make_forensics(

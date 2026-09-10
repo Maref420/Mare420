@@ -17,13 +17,13 @@ from intelligence.research_agent.models import (
 
 
 def _sig(**overrides: object) -> ForensicsSignal:
-    defaults = dict(
-        symbol="BTCUSDT", raw_spread_bps=10, aqs_score=50,
-        confidence=0.7, orderbook_imbalance=0.2, vpin_toxicity=0.4,
-        spoofing_detected=False, trace_id="t1",
-        timestamp_ns=int(time.time_ns()),
-        source_uri="rust-engine://v1",
-    )
+    defaults = {
+        "symbol": "BTCUSDT", "raw_spread_bps": 10, "aqs_score": 50,
+        "confidence": 0.7, "orderbook_imbalance": 0.2, "vpin_toxicity": 0.4,
+        "spoofing_detected": False, "trace_id": "t1",
+        "timestamp_ns": int(time.time_ns()),
+        "source_uri": "rust-engine://v1",
+    }
     defaults.update(overrides)
     return ForensicsSignal.model_validate(defaults)
 
@@ -123,12 +123,12 @@ def test_invalid_json_raises_error(agent: ResearchAgent) -> None:
 
 
 def test_missing_source_uri_raises_error(agent: ResearchAgent) -> None:
-    payload = dict(
-        symbol="BTCUSDT", raw_spread_bps=10, aqs_score=50,
-        confidence=0.7, orderbook_imbalance=0.2, vpin_toxicity=0.4,
-        spoofing_detected=False, trace_id="t8",
-        timestamp_ns=int(time.time_ns()), source_uri="",
-    )
+    payload = {
+        "symbol": "BTCUSDT", "raw_spread_bps": 10, "aqs_score": 50,
+        "confidence": 0.7, "orderbook_imbalance": 0.2, "vpin_toxicity": 0.4,
+        "spoofing_detected": False, "trace_id": "t8",
+        "timestamp_ns": int(time.time_ns()), "source_uri": "",
+    }
     with pytest.raises(AppError) as exc:
         agent.process_signal(json.dumps(payload), "t8")
     assert "VAL_" in exc.value.code

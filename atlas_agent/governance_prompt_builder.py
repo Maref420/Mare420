@@ -9,9 +9,8 @@ Traceability (section 21): Every prompt is versioned and hashed.
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 PROMPT_VERSION = "2.0.0"
 
@@ -380,8 +379,8 @@ def build_governance_prompt(
     project_name: str,
     architecture: str,
     modules: list[dict],
-    memory_context: Optional[str] = None,
-    repair_context: Optional[str] = None,
+    memory_context: str | None = None,
+    repair_context: str | None = None,
 ) -> tuple[str, str]:
     lang_rules = LANGUAGE_RULES.get(language.lower(), LANGUAGE_RULES["python"])
     ownership_type = _detect_ownership_type(module_name, language)
@@ -404,7 +403,7 @@ def build_governance_prompt(
             f"Fix ROOT CAUSE. Do not work around. Do not pacify."
         )
     task_spec = "\n".join(task_parts)
-    ts = datetime.now(timezone.utc).isoformat()
+    ts = datetime.now(UTC).isoformat()
     raw = ATLAS_GOVERNANCE_PROMPT_TEMPLATE.format(
         version=PROMPT_VERSION, prompt_hash="PENDING", timestamp=ts,
         layer_0=LAYER_0_INVARIANTS, layer_1=LAYER_1_RESTRICTIONS,
@@ -435,7 +434,7 @@ def build_structured_repair_context(
     error_classification: str,
     failing_boundary: str,
     error_messages: list[str],
-    previous_code_hash: Optional[str] = None,
+    previous_code_hash: str | None = None,
     attempt_number: int = 1,
 ) -> str:
     parts = [

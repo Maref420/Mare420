@@ -7,14 +7,12 @@ multi-tier memory system (episodic, procedural, semantic) with strict validation
 bounded growth, and robust error handling to ensure the signal path is never blocked.
 """
 
-import asyncio
 import logging
 import time
 import uuid
-from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Deque, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -54,7 +52,7 @@ class ExperienceStatus(Enum):
 class ForgettingPolicy:
     """
     Configuration for memory decay and forgetting.
-    
+
     Attributes:
         decay_rate: Rate at which memory relevance decays over time.
         min_relevance: Threshold below which memories are considered forgotten.
@@ -68,7 +66,7 @@ class ForgettingPolicy:
 class StrategySignalEventV1(BaseModel):
     """
     Frozen model representing the original strategy signal.
-    
+
     Attributes:
         signal_id: Unique identifier for the signal.
         symbol: Trading symbol associated with the signal.
@@ -84,7 +82,7 @@ class StrategySignalEventV1(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
     regime: str = Field(..., description="Market regime")
     timestamp: float = Field(..., description="Unix timestamp")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
     @field_validator("direction")
     @classmethod
@@ -98,7 +96,7 @@ class StrategySignalEventV1(BaseModel):
 class ExecutionOutcome(BaseModel):
     """
     Frozen model representing the execution outcome of a signal.
-    
+
     Attributes:
         outcome_id: Unique identifier for the outcome.
         signal_id: Reference to the original signal.
@@ -112,13 +110,13 @@ class ExecutionOutcome(BaseModel):
     success: bool = Field(..., description="Execution success status")
     pnl: float = Field(default=0.0, description="Profit and loss")
     execution_time: float = Field(default=0.0, ge=0.0, description="Execution time in seconds")
-    error_message: Optional[str] = Field(default=None, description="Error message if failed")
+    error_message: str | None = Field(default=None, description="Error message if failed")
 
 
 class RiskAssessment(BaseModel):
     """
     Frozen model representing risk assessment for the experience.
-    
+
     Attributes:
         risk_score: Risk score (0.0 to 1.0).
         volatility: Volatility metric at time of outcome.
@@ -132,7 +130,7 @@ class RiskAssessment(BaseModel):
 class ExperienceEvent(BaseModel):
     """
     Frozen model representing a complete experience event.
-    
+
     Attributes:
         event_id: Unique identifier for the experience event.
         signal: The original strategy signal.
@@ -148,7 +146,7 @@ class ExperienceEvent(BaseModel):
 
     @field_validator("outcome")
     @classmethod
-    def validate_outcome_link(cls, v: ExecutionOutcome, values: Dict[str, Any]) -> ExecutionOutcome:
+    def validate_outcome_link(cls, v: ExecutionOutcome, values: dict[str, Any]) -> ExecutionOutcome:
         signal = values.get("signal")
         if signal and v.signal_id != signal.signal_id:
             raise ValueError("Outcome signal_id must match signal signal_id")
@@ -158,7 +156,7 @@ class ExperienceEvent(BaseModel):
 class MemoryRecord(BaseModel):
     """
     Internal representation of a stored memory record.
-    
+
     Attributes:
         record_id: Unique identifier for the memory record.
         tier: Memory tier (episodic, procedural, semantic).
@@ -170,7 +168,7 @@ class MemoryRecord(BaseModel):
     """
     record_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Unique record ID")
     tier: MemoryTier = Field(..., description="Memory tier")
-    data: Dict[str, Any] = Field(..., description="Memory data")
+    data: dict[str, Any] = Field(..., description="Memory data")
     relevance: float = Field(default=1.0, ge=0.0, le=1.0, description="Relevance score")
     created_at: float = Field(default_factory=time.time, description="Creation timestamp")
     last_accessed: float = Field(default_factory=time.time, description="Last access timestamp")
@@ -180,12 +178,12 @@ class MemoryRecord(BaseModel):
 class ExperienceSubscriber:
     """
     Asynchronous subscriber for processing and storing experience events.
-    
+
     This class handles the validation, routing, and storage of experience events
     into episodic, procedural, and semantic memory stores. It implements bounded
     memory growth, forgetting policies, and robust error handling to ensure
     the signal path is never blocked.
-    
+
     Attributes:
         max_episodic_size: Maximum number of episodic memory records.
         max_procedural_size: Maximum number of procedural memory records.
@@ -194,19 +192,19 @@ class ExperienceSubscriber:
         storage_retry_count: Number of retries for storage operations.
         storage_retry_delay: Delay between storage retries in seconds.
     """
-    
+
     def __init__(
         self,
         max_episodic_size: int = 10000,
         max_procedural_size: int = 1000,
         max_semantic_size: int = 5000,
-        forgetting_policy: Optional[ForgettingPolicy] = None,
+        forgetting_policy: ForgettingPolicy | None = None,
         storage_retry_count: int = 3,
         storage_retry_delay: float = 0.1
     ) -> None:
         """
         Initialize the ExperienceSubscriber.
-        
+
         Args:
             max_episodic_size: Maximum number of episodic memory records.
             max_procedural_size: Maximum number of procedural memory records.
@@ -219,11 +217,10 @@ class ExperienceSubscriber:
         self._max_procedural_size = max_procedural_size
         self._max_semantic_size = max_semantic_size
         self._forgetting_policy = forgetting_policy or ForgettingPolicy()
-        self._storage
     @staticmethod
     def _detect_event_type(payload: dict) -> str:
         """Detect event type from payload keys.
-        
+
         Used by tests and routing logic to classify incoming events.
         """
         if "order_id" in payload:

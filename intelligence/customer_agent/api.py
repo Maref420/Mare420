@@ -58,7 +58,7 @@ class LandingHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         try:
             body = self._read_body()
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             self._send_error_envelope(400, "VAL_INVALID_JSON", "Invalid request body", False, trace_id)
             return
 
@@ -83,7 +83,7 @@ class LandingHandler(BaseHTTPRequestHandler):
             self._send_error_envelope(status, e.code, str(e), e.retryable, trace_id)
         except ValueError as e:
             self._send_error_envelope(400, "VAL_SCHEMA_ERROR", str(e), False, trace_id)
-        except OSError as e:
+        except OSError:
             self._send_error_envelope(503, "INT_IO_ERROR", "Internal error", False, trace_id)
 
     def do_GET(self) -> None:

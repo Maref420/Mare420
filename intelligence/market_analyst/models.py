@@ -4,12 +4,12 @@
 # POLICY: Frozen models. source_uri mandatory per ADR-006.
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class AnalystDecision(str, Enum):
+class AnalystDecision(StrEnum):
     STRONG_BUY_SIGNAL = "strong_buy_signal"
     BUY_SIGNAL = "buy_signal"
     HOLD = "hold"

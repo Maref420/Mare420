@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Dict
+from datetime import UTC, datetime, timedelta
 
 from intelligence.agent_control_plane.audit.models import AuditResult
 from intelligence.memory_system.forgetting.engine import MemoryForgettingEngine
@@ -16,7 +15,7 @@ from intelligence.memory_system.storage.interface import MemoryStorage
 
 class InMemoryStorage(MemoryStorage):
     def __init__(self) -> None:
-        self.records: Dict[str, MemoryRecord] = {}
+        self.records: dict[str, MemoryRecord] = {}
         self.fail_delete = False
 
     def store(self, record: MemoryRecord) -> None:
@@ -47,7 +46,7 @@ def make_memory(
     return MemoryRecord(
         memory_id=memory_id,
         memory_type=memory_type,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
         content={"value": "real-memory-content"},
         metadata=metadata or {},
         validation_status=ValidationStatus.VALIDATED,
@@ -101,7 +100,7 @@ def test_semantic_memory_can_be_forgotten_with_explicit_policy():
 
 def test_expired_working_memory_is_automatically_forgotten():
     engine, storage, audit = make_engine()
-    expired = datetime.now(timezone.utc) - timedelta(seconds=5)
+    expired = datetime.now(UTC) - timedelta(seconds=5)
     storage.store(
         make_memory(
             "work-expired",
@@ -124,7 +123,7 @@ def test_expired_working_memory_is_automatically_forgotten():
 
 def test_unexpired_working_memory_is_preserved():
     engine, storage, audit = make_engine()
-    future = datetime.now(timezone.utc) + timedelta(minutes=5)
+    future = datetime.now(UTC) + timedelta(minutes=5)
     storage.store(
         make_memory(
             "work-live",
