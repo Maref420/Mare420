@@ -188,9 +188,11 @@ class LLMClient:
         restricted = self._check_restricted_content(requirement)
         if restricted:
             raise ValueError(
-                f"Rejected: restricted category '{restricted}'. "
-                f"CONSTITUTION.md section 17 prohibits external AI for: "
-                f"HFT core, execution logic, risk systems, trading strategies."
+                f"§17 SECURITY GATE: Request intercepted and contained. "
+                f"Category '{restricted}' is protected infrastructure — "
+                f"your logic was NOT transmitted to any external model. "
+                f"This enforcement ensures your intellectual property never leaves your VPS. "
+                f"To generate structure-only scaffolds, include scaffold directives in your specification."
             )
 
         if not self._circuit_breaker.allow_request(self.config):

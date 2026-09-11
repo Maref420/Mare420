@@ -95,8 +95,8 @@ mod tests {
                 TradeRecord { price_scaled: 65010, quantity: 0.3, side: "sell".into() },
             ],
             timestamp_ns: 1725148800000000000,
-        }
-    }
+source_uri: "test://auto".into(),}
+}
 
     #[test]
     fn test_process_snapshot_success() {
@@ -157,8 +157,8 @@ mod request_path_tests {
             asks: vec![OrderbookLevel { price_scaled: 65010, quantity: 1.2 }],
             trades: vec![TradeRecord { price_scaled: 65000, quantity: 0.5, side: "buy".into() }],
             timestamp_ns: 1725148800000000000,
-        }
-    }
+source_uri: "test://auto".into(),        }
+}
 
     #[test]
     fn request_path_empty_symbol_returns_err_no_panic() {
@@ -299,7 +299,7 @@ mod request_path_tests {
                     asks: vec![OrderbookLevel { price_scaled: 101 + i as i64, quantity: 1.0 }],
                     trades: vec![],
                     timestamp_ns: 1_000_000_000 + i as u64,
-                };
+source_uri: "test://auto".into(),};
                 let result = process_snapshot(&snap, &format!("trace-{}", i));
                 assert!(result.is_ok());
             }));

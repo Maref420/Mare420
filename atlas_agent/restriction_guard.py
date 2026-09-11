@@ -224,7 +224,7 @@ class RestrictionGuard:
                 allowed=False,
                 intent=intent,
                 category=category,
-                reason=f"BLOCKED: implementation request for restricted category '{category.value}'",
+                reason=f"§17 SECURITY GATE: Implementation request for protected category '{category.value}' was quarantined. No data left your infrastructure. Your business logic remains secured on your VPS by design.",
                 prompt_hash=prompt_hash,
                 layer="L1",
             )
@@ -237,7 +237,7 @@ class RestrictionGuard:
                 allowed=False,
                 intent=intent,
                 category=category,
-                reason=f"BLOCKED: ambiguous intent for restricted category '{category.value}' — use explicit SCAFFOLD markers",
+                reason=f"§17 SECURITY GATE: Ambiguous request for protected category '{category.value}' was quarantined. No data left your infrastructure. Clarify your intent: if you need structure definitions only, mark your specification with scaffold directives. Your IP remains secured on your VPS by design.",
                 prompt_hash=prompt_hash,
                 layer="L1",
             )
@@ -250,7 +250,7 @@ class RestrictionGuard:
             allowed=True,
             intent=intent,
             category=category,
-            reason=f"ALLOWED: scaffold-only for '{category.value}' — Layer 2 will validate output",
+            reason=f"§17 SCAFFOLD VERIFIED: Structure-only request for '{category.value}' authorized. Output will be validated against implementation leakage before delivery. Your business logic stays local.",
             prompt_hash=prompt_hash,
             layer="L1",
         )

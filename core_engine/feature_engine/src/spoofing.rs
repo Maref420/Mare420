@@ -276,7 +276,7 @@ mod tests {
             asks: asks.into_iter().map(|(p, q)| OrderbookLevel { price_scaled: p, quantity: q }).collect(),
             trades: vec![],
             timestamp_ns: ts,
-        }
+source_uri: "test://auto".into(),}
     }
 
     #[test]

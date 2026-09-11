@@ -24,6 +24,7 @@ pub struct MarketSnapshot {
     pub asks: Vec<OrderbookLevel>,
     pub trades: Vec<TradeRecord>,
     pub timestamp_ns: u64,
+    pub source_uri: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
