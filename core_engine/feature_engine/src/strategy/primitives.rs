@@ -7,6 +7,58 @@ use std::collections::HashMap;
 use crate::models::{OrderbookLevel, TradeRecord};
 use crate::EngineError;
 
+// ============================================================
+// TEMPORAL PRIMITIVE MEMORY (TPM)
+// Lock-free ring buffer for bounded historical context.
+// Each symbol gets one ring. Capacity is configurable.
+// Memory: capacity * ~2KB per symbol.
+// ============================================================
+#[derive(Debug, Clone)]
+pub struct SnapshotRing {
+    buffer: Vec<Option<crate::models::MarketSnapshot>>,
+    capacity: usize,
+    head: usize,
+    count: usize,
+}
+
+impl SnapshotRing {
+    pub fn new(capacity: usize) -> Self {
+        let cap = capacity.clamp(1, 10_000); // safety bounds
+        Self {
+            buffer: vec![None; cap],
+            capacity: cap,
+            head: 0,
+            count: 0,
+        }
+    }
+
+    /// Push a new snapshot. O(1). Overwrites oldest if full.
+    pub fn push(&mut self, snap: crate::models::MarketSnapshot) {
+        self.buffer[self.head] = Some(snap);
+        self.head = (self.head + 1) % self.capacity;
+        if self.count < self.capacity {
+            self.count += 1;
+        }
+    }
+
+    /// Return up to `n` most recent snapshots, newest first.
+    pub fn last_n(&self, n: usize) -> Vec<&crate::models::MarketSnapshot> {
+        let take = n.min(self.count);
+        let mut result = Vec::with_capacity(take);
+        for i in 0..take {
+            let idx = (self.head + self.capacity - 1 - i) % self.capacity;
+            if let Some(ref snap) = self.buffer[idx] {
+                result.push(snap);
+            }
+        }
+        result
+    }
+
+    pub fn len(&self) -> usize { self.count }
+    pub fn is_empty(&self) -> bool { self.count == 0 }
+    pub fn capacity(&self) -> usize { self.capacity }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IcebergSignal {
     pub detected: bool,
@@ -16,6 +68,8 @@ pub struct IcebergSignal {
     pub executed_qty: f64,
     pub hidden_ratio: f64,
     pub confidence: f64,
+    pub duration_snapshots: usize,
+    pub trend: String,
 }
 
 pub fn detect_iceberg(
@@ -45,13 +99,15 @@ pub fn detect_iceberg(
                     detected: true, side: side.clone(), price_level: *price,
                     visible_qty: visible, executed_qty: *executed,
                     hidden_ratio: ratio, confidence: (ratio / 5.0).min(1.0),
+                    duration_snapshots: 1,
+                    trend: "unknown".into(),
                 });
             }
         }
     }
     Ok(best_iceberg.unwrap_or(IcebergSignal {
         detected: false, side: "none".into(), price_level: 0,
-        visible_qty: 0.0, executed_qty: 0.0, hidden_ratio: 0.0, confidence: 0.0,
+        visible_qty: 0.0, executed_qty: 0.0, hidden_ratio: 0.0, confidence: 0.0, duration_snapshots: 0, trend: "none".into(),
     }))
 }
 
@@ -100,6 +156,8 @@ pub struct SweepSignal {
     pub sweep_price: i64,
     pub volume_spike_ratio: f64,
     pub confidence: f64,
+    pub reversal_confirmed: bool,
+    pub post_sweep_direction: String,
 }
 
 pub fn detect_liquidity_sweep(trades: &[TradeRecord]) -> Result<SweepSignal, EngineError> {
@@ -119,17 +177,17 @@ pub fn detect_liquidity_sweep(trades: &[TradeRecord]) -> Result<SweepSignal, Eng
         let later_buys: f64 = trades[1..].iter().filter(|t| t.side.to_lowercase() == "buy").map(|t| t.quantity).sum();
         let later_sells: f64 = trades[1..].iter().filter(|t| t.side.to_lowercase() == "sell").map(|t| t.quantity).sum();
         if later_buys > later_sells {
-            return Ok(SweepSignal { detected: true, direction: "sweep_low".into(), sweep_price: first.price_scaled, volume_spike_ratio: first.quantity / avg_qty, confidence: ((first.quantity / avg_qty) / 5.0).min(1.0) });
+            return Ok(SweepSignal { detected: true, direction: "sweep_low".into(), sweep_price: first.price_scaled, volume_spike_ratio: first.quantity / avg_qty, confidence: ((first.quantity / avg_qty) / 5.0).min(1.0), reversal_confirmed: false, post_sweep_direction: "pending".into(), });
         }
     }
     if last.price_scaled == max_price && last.quantity > avg_qty * 2.0 {
         let earlier_sells: f64 = trades[..trades.len()-1].iter().filter(|t| t.side.to_lowercase() == "sell").map(|t| t.quantity).sum();
         let earlier_buys: f64 = trades[..trades.len()-1].iter().filter(|t| t.side.to_lowercase() == "buy").map(|t| t.quantity).sum();
         if earlier_sells > earlier_buys {
-            return Ok(SweepSignal { detected: true, direction: "sweep_high".into(), sweep_price: last.price_scaled, volume_spike_ratio: last.quantity / avg_qty, confidence: ((last.quantity / avg_qty) / 5.0).min(1.0) });
+            return Ok(SweepSignal { detected: true, direction: "sweep_high".into(), sweep_price: last.price_scaled, volume_spike_ratio: last.quantity / avg_qty, confidence: ((last.quantity / avg_qty) / 5.0).min(1.0), reversal_confirmed: false, post_sweep_direction: "pending".into(), });
         }
     }
-    Ok(SweepSignal { detected: false, direction: "none".into(), sweep_price: 0, volume_spike_ratio: 0.0, confidence: 0.0 })
+    Ok(SweepSignal { detected: false, direction: "none".into(), sweep_price: 0, volume_spike_ratio: 0.0, confidence: 0.0, reversal_confirmed: false, post_sweep_direction: "pending".into(), })
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -138,6 +196,7 @@ pub struct DisplacementSignal {
     pub direction: String,
     pub acceleration: f64,
     pub confidence: f64,
+    pub sustained_bars: usize,
 }
 
 pub fn detect_displacement(trades: &[TradeRecord]) -> Result<DisplacementSignal, EngineError> {
@@ -151,7 +210,7 @@ pub fn detect_displacement(trades: &[TradeRecord]) -> Result<DisplacementSignal,
     let mut accelerations = Vec::with_capacity(velocities.len().saturating_sub(1));
     for i in 1..velocities.len() { accelerations.push(velocities[i] - velocities[i - 1]); }
     if accelerations.is_empty() {
-        return Ok(DisplacementSignal { detected: false, direction: "none".into(), acceleration: 0.0, confidence: 0.0 });
+        return Ok(DisplacementSignal { detected: false, direction: "none".into(), acceleration: 0.0, confidence: 0.0, sustained_bars: 0, });
     }
     let max_accel = accelerations.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let min_accel = accelerations.iter().cloned().fold(f64::INFINITY, f64::min);
@@ -161,11 +220,11 @@ pub fn detect_displacement(trades: &[TradeRecord]) -> Result<DisplacementSignal,
     }
     let threshold = first_price * 0.001;
     if max_accel > threshold {
-        Ok(DisplacementSignal { detected: true, direction: "up".into(), acceleration: max_accel, confidence: (max_accel / (threshold * 5.0)).min(1.0) })
+        Ok(DisplacementSignal { detected: true, direction: "up".into(), acceleration: max_accel, confidence: (max_accel / (threshold * 5.0)).min(1.0), sustained_bars: 0, })
     } else if min_accel < -threshold {
-        Ok(DisplacementSignal { detected: true, direction: "down".into(), acceleration: min_accel, confidence: (min_accel.abs() / (threshold * 5.0)).min(1.0) })
+        Ok(DisplacementSignal { detected: true, direction: "down".into(), acceleration: min_accel, confidence: (min_accel.abs() / (threshold * 5.0)).min(1.0), sustained_bars: 0, })
     } else {
-        Ok(DisplacementSignal { detected: false, direction: "none".into(), acceleration: 0.0, confidence: 0.0 })
+        Ok(DisplacementSignal { detected: false, direction: "none".into(), acceleration: 0.0, confidence: 0.0, sustained_bars: 0, })
     }
 }
 
@@ -177,6 +236,7 @@ pub struct VolumeProfileSignal {
     pub value_area_low: i64,
     pub current_vs_poc: String,
     pub confidence: f64,
+    pub poc_migration_rate: f64,
 }
 
 pub fn compute_volume_profile(trades: &[TradeRecord], current_price: i64) -> Result<VolumeProfileSignal, EngineError> {
@@ -222,6 +282,7 @@ pub fn compute_volume_profile(trades: &[TradeRecord], current_price: i64) -> Res
     Ok(VolumeProfileSignal {
         poc_price: poc.0, poc_volume: poc.1, value_area_high: va_high, value_area_low: va_low,
         current_vs_poc: vs_poc.into(), confidence: (poc.1 / total_vol).min(1.0),
+        poc_migration_rate: 0.0,
     })
 }
 
@@ -267,4 +328,178 @@ pub fn estimate_slippage(bids: &[OrderbookLevel], asks: &[OrderbookLevel], order
         impact_per_unit: slippage_bps as f64 / order_size,
         confidence: if depth_1pct > order_size * 2.0 { 0.9 } else { 0.5 },
     })
+}
+
+// ============================================================
+// TEMPORAL PRIMITIVES — use history ring buffer
+// These upgrade stateless signals with temporal context.
+// ============================================================
+
+/// Temporal iceberg: detect if hidden orders persist across snapshots
+pub fn detect_iceberg_temporal(
+    current: &crate::models::MarketSnapshot,
+    history: &[&crate::models::MarketSnapshot],
+) -> Result<IcebergSignal, EngineError> {
+    let mut levels = Vec::new();
+    levels.extend(current.bids.iter().cloned());
+    levels.extend(current.asks.iter().cloned());
+    let mut base = detect_iceberg(&current.trades, &levels)?;
+
+    if !base.detected || history.is_empty() {
+        return Ok(base);
+    }
+
+    // Count how many historical snapshots also had iceberg at same price level
+    let mut duration = 1_usize;
+    let target_price = base.price_level;
+
+    for snap in history {
+        let mut h_levels = Vec::new();
+        h_levels.extend(snap.bids.iter().cloned());
+        h_levels.extend(snap.asks.iter().cloned());
+        if let Ok(h_sig) = detect_iceberg(&snap.trades, &h_levels) {
+            if h_sig.detected && h_sig.price_level == target_price {
+                duration += 1;
+            }
+        }
+    }
+
+    base.duration_snapshots = duration;
+    base.trend = if duration >= 5 {
+        "accumulating".into()
+    } else if duration >= 2 {
+        "stable".into()
+    } else {
+        "transient".into()
+    };
+
+    // Boost confidence for persistent icebergs
+    let trend_boost = match base.trend.as_str() {
+        "accumulating" => 0.15,
+        "stable" => 0.08,
+        _ => 0.0,
+    };
+    base.confidence = (base.confidence + trend_boost).min(1.0);
+
+    Ok(base)
+}
+
+/// Temporal sweep: check if reversal was confirmed after the sweep
+pub fn detect_sweep_temporal(
+    current: &crate::models::MarketSnapshot,
+    history: &[&crate::models::MarketSnapshot],
+) -> Result<SweepSignal, EngineError> {
+    let mut base = detect_liquidity_sweep(&current.trades)?;
+
+    if !base.detected || history.is_empty() {
+        return Ok(base);
+    }
+
+    // Check if price reversed in the expected direction after sweep
+    let current_mid = if !current.bids.is_empty() && !current.asks.is_empty() {
+        (current.bids[0].price_scaled + current.asks[0].price_scaled) as f64 / 2.0
+    } else {
+        return Ok(base);
+    };
+
+    let mut reversals = 0_usize;
+    let mut checks = 0_usize;
+
+    for snap in history.iter().take(3) {
+        if snap.bids.is_empty() || snap.asks.is_empty() { continue; }
+        let hist_mid = (snap.bids[0].price_scaled + snap.asks[0].price_scaled) as f64 / 2.0;
+        checks += 1;
+
+        match base.direction.as_str() {
+            "sweep_low" => {
+                // After sweeping low, price should go UP
+                if current_mid > hist_mid { reversals += 1; }
+            }
+            "sweep_high" => {
+                // After sweeping high, price should go DOWN
+                if current_mid < hist_mid { reversals += 1; }
+            }
+            _ => {}
+        }
+    }
+
+    if checks > 0 && reversals * 2 > checks {
+        base.reversal_confirmed = true;
+        base.post_sweep_direction = match base.direction.as_str() {
+            "sweep_low" => "up".into(),
+            "sweep_high" => "down".into(),
+            _ => "unknown".into(),
+        };
+        base.confidence = (base.confidence + 0.20).min(1.0);
+    } else {
+        base.reversal_confirmed = false;
+        base.post_sweep_direction = "unconfirmed".into();
+    }
+
+    Ok(base)
+}
+
+/// Temporal displacement: check if acceleration is sustained
+pub fn detect_displacement_temporal(
+    current: &crate::models::MarketSnapshot,
+    history: &[&crate::models::MarketSnapshot],
+) -> Result<DisplacementSignal, EngineError> {
+    let mut base = detect_displacement(&current.trades)?;
+
+    if !base.detected || history.is_empty() {
+        return Ok(base);
+    }
+
+    // Count how many recent snapshots had displacement in same direction
+    let mut sustained = 1_usize;
+    for snap in history.iter().take(5) {
+        if let Ok(h_sig) = detect_displacement(&snap.trades) {
+            if h_sig.detected && h_sig.direction == base.direction {
+                sustained += 1;
+            }
+        }
+    }
+
+    base.sustained_bars = sustained;
+    // Sustained displacement = higher confidence
+    let sustain_boost = ((sustained as f64 - 1.0) * 0.05).min(0.25);
+    base.confidence = (base.confidence + sustain_boost).min(1.0);
+
+    Ok(base)
+}
+
+/// Temporal volume profile: track POC migration over time
+pub fn compute_volume_profile_temporal(
+    current: &crate::models::MarketSnapshot,
+    history: &[&crate::models::MarketSnapshot],
+) -> Result<VolumeProfileSignal, EngineError> {
+    let current_price = current.trades.last()
+        .map(|t| t.price_scaled)
+        .ok_or_else(|| EngineError::InvalidData("no trades".into()))?;
+    let mut base = compute_volume_profile(&current.trades, current_price)?;
+
+    if history.is_empty() {
+        return Ok(base);
+    }
+
+    // Track POC price changes across history
+    let mut poc_prices = vec![base.poc_price];
+    for snap in history.iter().take(10) {
+        if let Some(last_t) = snap.trades.last() {
+            if let Ok(h_prof) = compute_volume_profile(&snap.trades, last_t.price_scaled) {
+                poc_prices.push(h_prof.poc_price);
+            }
+        }
+    }
+
+    // Calculate migration rate: average POC change per snapshot
+    if poc_prices.len() >= 2 {
+        let total_migration: i64 = poc_prices.windows(2)
+            .map(|w| (w[0] - w[1]).abs())
+            .sum();
+        let steps = (poc_prices.len() - 1) as f64;
+        base.poc_migration_rate = total_migration as f64 / steps;
+    }
+
+    Ok(base)
 }

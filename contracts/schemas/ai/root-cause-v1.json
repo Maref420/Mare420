@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "type": "root-cause-analysis-contract",
+  "purpose": "Schema for structured root cause analysis of compilation and test failures.",
+  "governance": {
+    "specification_id": "root-cause-v1",
+    "owner": "atlas_agent_team",
+    "approval_date": "2026-09-11",
+    "references": ["llm-invocation-v1.json", "portable-memory-v1.json"]
+  },
+  "privacy_boundary": {
+    "may_store": ["error_category", "root_cause", "fix_directive", "language", "confidence"],
+    "must_never_store": ["source_code", "api_keys", "credentials", "env_variables"]
+  },
+  "schema": {
+    "RootCauseReport": {
+      "errors_analyzed": {"type": "integer"},
+      "findings": {
+        "type": "array",
+        "items": {
+          "error_signature": {"type": "string", "maxLength": 128},
+          "category": {
+            "type": "string",
+            "enum": ["missing_import", "wrong_type", "logic_error", "missing_impl",
+                     "api_mismatch", "ownership_error", "lifetime_error",
+                     "syntax_error", "dependency_missing", "config_error", "unknown"]
+          },
+          "root_cause": {"type": "string", "maxLength": 256},
+          "fix_directive": {"type": "string", "maxLength": 512},
+          "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+          "severity": {"type": "string", "enum": ["blocker", "major", "minor"]}
+        }
+      },
+      "overall_assessment": {"type": "string", "maxLength": 512},
+      "recommended_strategy": {"type": "string", "enum": ["patch", "rewrite", "different_approach"]}
+    }
+  }
+}

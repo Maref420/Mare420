@@ -289,30 +289,102 @@ class ValidatorEngine:
             ) from e
 
 
-    def run_tests(self, target_dir: str, language: str) -> list[TestResult]:
-        """
-        Run tests in the target directory.
-        """
-        results = []
+    def compile_check(self, target_dir: str, language: str) -> TestResult:
+        """Compile generated code without running it."""
+        import time as _time
+        t0 = _time.monotonic()
+        timeout_sec = int(os.environ.get("ATLAS_COMPILE_TIMEOUT", "120"))
         try:
-            if language == "python":
+            if language == "rust":
                 result = subprocess.run(
-                    ["python3", "-m", "pytest", target_dir],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    check=False
-                )
-                results.append(TestResult(
-                    test_name="unit_tests",
-                    passed=result.returncode == 0,
-                    duration_ms=1000,
-                    output=result.stdout,
-                    errors=result.stderr.split('\n') if result.stderr else []
-                ))
-        except FileNotFoundError:
-            results.append(TestResult(test_name="unit_tests", passed=False, duration_ms=0, errors=["pytest not found"]))
+                    ["cargo", "build", "--release"], cwd=target_dir,
+                    capture_output=True, text=True, timeout=timeout_sec, check=False)
+                duration = int((_time.monotonic() - t0) * 1000)
+                errors = [l.strip()[:300] for l in result.stderr.split("\n")
+                          if l.strip() and "error" in l.lower()][:10]
+                return TestResult(test_name="compile_check", passed=result.returncode == 0,
+                    duration_ms=duration, output=result.stdout[:2000], errors=errors)
+            elif language == "go":
+                result = subprocess.run(
+                    ["go", "build", "./..."], cwd=target_dir,
+                    capture_output=True, text=True, timeout=timeout_sec, check=False)
+                duration = int((_time.monotonic() - t0) * 1000)
+                errors = [l.strip()[:300] for l in result.stderr.split("\n") if l.strip()][:10]
+                return TestResult(test_name="compile_check", passed=result.returncode == 0,
+                    duration_ms=duration, output=result.stdout[:2000], errors=errors)
+            elif language == "python":
+                result = subprocess.run(
+                    ["python3", "-m", "py_compile", target_dir],
+                    capture_output=True, text=True, timeout=30, check=False)
+                duration = int((_time.monotonic() - t0) * 1000)
+                return TestResult(test_name="compile_check", passed=result.returncode == 0,
+                    duration_ms=duration, output="",
+                    errors=result.stderr.split("\n")[:5] if result.stderr else [])
+            return TestResult(test_name="compile_check", passed=False, duration_ms=0,
+                errors=[f"Unsupported language: {language}"])
+        except FileNotFoundError as e:
+            return TestResult(test_name="compile_check", passed=False, duration_ms=0,
+                errors=[f"Compiler not found: {e.filename}"])
         except subprocess.TimeoutExpired:
-            results.append(TestResult(test_name="unit_tests", passed=False, duration_ms=60000, errors=["Test timeout"]))
+            return TestResult(test_name="compile_check", passed=False,
+                duration_ms=timeout_sec * 1000, errors=["Compilation timeout"])
 
+    def run_tests(self, target_dir: str, language: str) -> list[TestResult]:
+        """Run tests supporting Rust, Go, Python."""
+        import time as _time
+        results = []
+        timeout_sec = int(os.environ.get("ATLAS_TEST_TIMEOUT", "60"))
+        try:
+            if language == "rust":
+                t0 = _time.monotonic()
+                result = subprocess.run(
+                    ["cargo", "test", "--release"], cwd=target_dir,
+                    capture_output=True, text=True, timeout=timeout_sec, check=False)
+                duration = int((_time.monotonic() - t0) * 1000)
+                errors = [l.strip()[:300] for l in result.stderr.split("\n")
+                          if l.strip() and ("FAILED" in l or "error" in l.lower())][:10]
+                tr = TestResult(test_name="cargo_test", passed=result.returncode == 0,
+                    duration_ms=duration, output=result.stdout[:2000], errors=errors)
+                # Parse pass rate
+                tr._pass_rate = 1.0
+                for line in result.stdout.split("\n"):
+                    if "test result:" in line:
+                        parts = line.split(";")
+                        p_count = f_count = 0
+                        for part in parts:
+                            nums = [x for x in part.split() if x.isdigit()]
+                            if "passed" in part and nums: p_count = int(nums[0])
+                            if "failed" in part and nums: f_count = int(nums[0])
+                        total = p_count + f_count
+                        if total > 0: tr._pass_rate = p_count / total
+                        break
+                results.append(tr)
+            elif language == "go":
+                t0 = _time.monotonic()
+                result = subprocess.run(
+                    ["go", "test", "-v", "-count=1", "./..."], cwd=target_dir,
+                    capture_output=True, text=True, timeout=timeout_sec, check=False)
+                duration = int((_time.monotonic() - t0) * 1000)
+                errors = [l.strip()[:300] for l in (result.stdout + result.stderr).split("\n")
+                          if "FAIL" in l][:10]
+                results.append(TestResult(test_name="go_test", passed=result.returncode == 0,
+                    duration_ms=duration, output=result.stdout[:2000], errors=errors))
+            elif language == "python":
+                t0 = _time.monotonic()
+                result = subprocess.run(
+                    ["python3", "-m", "pytest", target_dir, "-v", "--tb=short"],
+                    capture_output=True, text=True, timeout=timeout_sec, check=False)
+                duration = int((_time.monotonic() - t0) * 1000)
+                results.append(TestResult(test_name="pytest", passed=result.returncode == 0,
+                    duration_ms=duration, output=result.stdout[:2000],
+                    errors=result.stderr.split("\n")[:10] if result.stderr else []))
+            else:
+                results.append(TestResult(test_name="tests", passed=False, duration_ms=0,
+                    errors=[f"Unsupported language: {language}"]))
+        except FileNotFoundError as e:
+            results.append(TestResult(test_name="tests", passed=False, duration_ms=0,
+                errors=[f"Test runner not found: {e.filename}"]))
+        except subprocess.TimeoutExpired:
+            results.append(TestResult(test_name="tests", passed=False,
+                duration_ms=timeout_sec * 1000, errors=["Test timeout"]))
         return results

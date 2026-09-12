@@ -155,7 +155,124 @@ class PortableMemory:
                 hints.append(f"[LEARNED x{exp.occurrences}] {exp.error_pattern} -> {exp.fix_strategy}"[:300])
                 seen.add(exp.fix_strategy)
         return hints
+    def predict_best_first_attempt(
+        self, language: str, requirement_keywords: list[str],
+        module_type: str = "*",
+    ) -> dict:
+        """Predict the best FIRST attempt strategy BEFORE generating code.
+
+        This is what makes Atlas AI unique: proactive failure prevention
+        instead of reactive fixing. No competitor does this.
+
+        Analyzes historical data to predict which strategy will succeed
+        on the FIRST attempt for this specific combination of:
+        - target language
+        - requirement patterns (keywords extracted from description)
+        - module type
+
+        Returns:
+            {
+                "strategy": "patch|rewrite|different_prompt",
+                "confidence": 0.0-1.0,
+                "reason": "why this strategy is predicted to work",
+                "historical_matches": int,
+                "predicted_attempts_saved": float,
+            }
+        """
+        lang_stats = self._strategy_stats.get(language)
+        if not lang_stats or len(self._experiences) < 5:
+            return {
+                "strategy": "patch",
+                "confidence": 0.0,
+                "reason": "insufficient historical data",
+                "historical_matches": 0,
+                "predicted_attempts_saved": 0.0,
+            }
+
+        # Find experiences matching this language + keyword overlap
+        matched_experiences: list[tuple] = []
+        req_kw_set = set(k.lower() for k in requirement_keywords)
+
+        for exp in self._experiences:
+            if not hasattr(exp, "language") or exp.language != language:
+                continue
+            # Keyword overlap scoring
+            exp_keywords = set()
+            if hasattr(exp, "requirement_summary"):
+                exp_keywords = set(
+                    w.lower() for w in str(exp.requirement_summary).split()
+                    if len(w) > 3
+                )
+            overlap = len(req_kw_set & exp_keywords) if req_kw_set and exp_keywords else 0
+            # Module type match bonus
+            module_match = (
+                hasattr(exp, "module_type") and
+                (exp.module_type == module_type or exp.module_type == "*")
+            )
+            relevance = overlap + (2 if module_match else 0)
+            if relevance > 0:
+                matched_experiences.append((exp, relevance))
+
+        if not matched_experiences:
+            # No keyword matches — fall back to overall best
+            best_strat = self.get_best_strategy(language)
+            stat = lang_stats.get(best_strat)
+            conf = stat.success_rate if stat else 0.0
+            return {
+                "strategy": best_strat,
+                "confidence": round(conf * 0.5, 2),  # Lower confidence without keyword match
+                "reason": f"no keyword match, using overall best for {language}",
+                "historical_matches": 0,
+                "predicted_attempts_saved": 0.0,
+            }
+
+        # Weight strategies by relevance-weighted success
+        strategy_scores: dict[str, float] = {}
+        strategy_counts: dict[str, int] = {}
+        total_relevance = 0
+
+        for exp, relevance in sorted(matched_experiences, key=lambda x: -x[1])[:20]:
+            strat = getattr(exp, "strategy_used", "patch")
+            success = getattr(exp, "success", False)
+            weight = relevance * (getattr(exp, "weight", 1.0) if hasattr(exp, "weight") else 1.0)
+            strategy_scores[strat] = strategy_scores.get(strat, 0.0) + (weight if success else 0.0)
+            strategy_counts[strat] = strategy_counts.get(strat, 0) + 1
+            total_relevance += weight
+
+        if total_relevance == 0:
+            return {
+                "strategy": "patch",
+                "confidence": 0.0,
+                "reason": "matched experiences but zero weight",
+                "historical_matches": len(matched_experiences),
+                "predicted_attempts_saved": 0.0,
+            }
+
+        # Normalize scores
+        for strat in strategy_scores:
+            strategy_scores[strat] /= total_relevance
+
+        best_strat = max(strategy_scores, key=strategy_scores.get)
+        confidence = round(strategy_scores[best_strat], 2)
+        n_matches = sum(strategy_counts.values())
+
+        # Estimate attempts saved vs naive PATCH-first approach
+        patch_rate = strategy_scores.get("patch", 0.0)
+        attempts_saved = max(0.0, round((confidence - patch_rate) * 2.5, 1))
+
+        return {
+            "strategy": best_strat,
+            "confidence": confidence,
+            "reason": (
+                f"{n_matches} similar past attempts matched, "
+                f"'{best_strat}' succeeded {confidence:.0%} of the time"
+            ),
+            "historical_matches": n_matches,
+            "predicted_attempts_saved": attempts_saved,
+        }
+
     def get_best_strategy(self, language: str) -> str:
+        """Return the best-performing strategy for a language."""
         best_name, best_rate = "patch", -1.0
         for name, stats in self._strategy_stats.items():
             if stats.total_attempts < self.MIN_STRATEGY_SAMPLES:

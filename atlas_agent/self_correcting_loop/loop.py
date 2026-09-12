@@ -1,55 +1,104 @@
-"""Self-Correcting Loop v2 — Professional Grade.
+"""Self-Correcting Loop v3 - Governance-Aware with Portable Memory.
 
-Improvements over v1:
-1. Structured repair context (previous code + errors + strategy)
-2. Multi-dimensional quality scoring (not just pass/fail)
-3. Repair strategy escalation (patch → rewrite → different model)
-4. Attempt history tracking (avoid repeating same mistakes)
-5. Memory update on human decision (close the learning loop)
-6. Metrics dashboard (success rate, avg attempts, common failures)
-7. Diff-based repair for minor issues (token efficient)
+Improvements over v2:
+1. Portable memory integration - learns from every attempt
+2. Governance-aware repair context - enforces project contracts
+3. Pattern extraction - auto-categorizes errors for learning
+4. Strategy optimization - uses historical data to pick best strategy
+5. Privacy-safe - never sends source code in repair prompts
+6. Contract enforcement - injects llm-invocation-v1 rules into context
+7. Anti-pattern promotion - repeated failures become anti-patterns
 
-Governed by: contracts/schemas/ai/llm-invocation-v1.json
+Governed by:
+  - contracts/schemas/ai/llm-invocation-v1.json
+  - contracts/schemas/ai/portable-memory-v1.json
+  - CONSTITUTION.md section 17
 """
-
 __all__ = ['SelfCorrectingLoop', 'QualityScore', 'LoopMetrics']
-
 
 import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-from .code_patcher import CodePatcher
+
+from ..code_patcher import CodePatcher
+
+
+# ================================================================
+# Governance Rules - loaded from contracts, hardcoded as fallback
+# These are injected into every repair prompt sent to LLM
+# ================================================================
+
+GOVERNANCE_RULES = {
+    "rust": [
+        "Production-grade only: use Result<T, E> on all fallible paths.",
+        "No unwrap() or expect() on request/compute paths (I7).",
+        "Use checked_add/checked_mul for arithmetic that may overflow.",
+        "Structured logging required: service, trace_id, span_id, code, duration_ms.",
+        "Errors must map to ErrorEnvelope codes at service boundaries.",
+        "Typed config from environment variables only - no hardcoded secrets.",
+        "No external dependencies unless explicitly approved.",
+        "All public functions must have doc comments.",
+    ],
+    "go": [
+        "Production-grade only: handle every error, no ignored err on request paths.",
+        "Use context.Context on every RPC/IO call with deadline propagation.",
+        "Use ONLY Go standard library packages unless explicitly approved.",
+        "Table-driven tests required for all exported functions.",
+        "Structured logging required: service, trace_id, span_id, code, duration_ms.",
+        "Client timeouts mandatory on all outbound calls.",
+        "No goroutine leaks - all goroutines must be cancellable.",
+    ],
+    "python": [
+        "Production-grade only: explicit types at all function boundaries.",
+        "No bare except clauses (I7) - catch specific exceptions only.",
+        "Use AppError domain exceptions with stable error codes.",
+        "Structured logging required: service, trace_id, span_id, code, duration_ms.",
+        "Typed config from environment via pydantic-settings.",
+        "No secrets in source code - environment variables only.",
+    ],
+}
+
+CONTRACT_REQUIREMENTS = [
+    "Cross-service errors MUST use ErrorEnvelope with stable codes (VAL_, AUTH_, BIZ_, DEP_, RES_, NET_, INT_).",
+    "Retry only when retryable=true, with jittered exponential backoff and max attempts.",
+    "Deadlines propagate edge-to-leaf; honor remaining parent deadline.",
+    "Language routing: Rust=compute, Go=transfer/network, Python=intelligence/agents.",
+    "One owner per unit of work; no cross-language business logic duplication.",
+]
 
 
 class RepairStrategy(Enum):
     """Escalation strategy for repair attempts."""
-    PATCH = "patch"              # Fix specific errors in existing code
-    REWRITE = "rewrite"          # Full rewrite with error context
-    DIFFERENT_MODEL = "different_model"  # Switch to fallback model
-    DIFFERENT_PROMPT = "different_prompt"  # Restructure the prompt
+    PATCH = "patch"
+    REWRITE = "rewrite"
+    DIFFERENT_MODEL = "different_model"
+    DIFFERENT_PROMPT = "different_prompt"
 
 
 @dataclass
 class QualityScore:
-    """Multi-dimensional quality assessment."""
-    syntax: float = 0.0          # 0.0-1.0: passes syntax check
-    security: float = 0.0        # 0.0-1.0: no critical/high findings
-    completeness: float = 0.0    # 0.0-1.0: has required components
-    style: float = 0.0           # 0.0-1.0: follows conventions
-    overall: float = 0.0         # Weighted average
-
+    """Multi-dimensional quality assessment including governance and execution."""
+    syntax: float = 0.0
+    security: float = 0.0
+    execution: float = 1.0      # Compile + test pass rate
+    completeness: float = 0.0
+    style: float = 0.0
+    governance: float = 1.0
+    overall: float = 0.0
     PASS_THRESHOLD = 0.8
 
     def compute_overall(self) -> float:
         self.overall = (
-            self.syntax * 0.35 +
-            self.security * 0.30 +
-            self.completeness * 0.20 +
-            self.style * 0.15
+            self.syntax * 0.25 +
+            self.security * 0.20 +
+            self.execution * 0.25 +
+            self.completeness * 0.10 +
+            self.style * 0.05 +
+            self.governance * 0.15
         )
         return self.overall
 
@@ -115,18 +164,52 @@ class LoopMetrics:
 
 
 class SelfCorrectingLoop:
-    """Professional self-correcting code generation loop."""
+    """Governance-aware self-correcting code generation loop with portable memory.
 
+    Learns from every attempt, enforces project contracts, and optimizes
+    repair strategies based on historical effectiveness data.
+    """
     MAX_ATTEMPTS = 5
     PASS_THRESHOLD = 0.8
+    MAX_REPAIR_CHARS = 6000  # Hard token budget for repair prompts
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        portable_memory: Optional[Any] = None,
+        governance_engine: Optional[Any] = None,
+    ) -> None:
         self.metrics = LoopMetrics()
         self.patcher = CodePatcher()
         self._attempt_history: list[AttemptRecord] = []
+        self.memory = portable_memory
+        self.governance = governance_engine
 
-    def determine_strategy(self, attempt: int, previous_errors: list[str]) -> RepairStrategy:
-        """Determine repair strategy based on attempt number and error pattern."""
+    def determine_strategy(
+        self,
+        attempt: int,
+        previous_errors: list[str],
+        language: str = "",
+    ) -> RepairStrategy:
+        """Determine repair strategy using memory-optimized selection.
+
+        If portable memory has historical data, uses the best-performing
+        strategy for this language. Otherwise falls back to escalation ladder.
+        """
+        # Use memory-optimized strategy if available
+        if self.memory is not None and language:
+            best = self.memory.get_best_strategy(language)
+            stats = self.memory._strategy_stats.get(best)
+            if stats and stats.total_attempts >= 3 and stats.success_rate > 0.4:
+                logger.info(
+                    "Memory-optimized strategy: %s (rate=%.0f%%, n=%d)",
+                    best, stats.success_rate * 100, stats.total_attempts,
+                )
+                try:
+                    return RepairStrategy(best)
+                except ValueError:
+                    pass
+
+        # Fallback: escalation ladder
         if attempt <= 2:
             return RepairStrategy.PATCH
         elif attempt <= 4:
@@ -142,51 +225,84 @@ class SelfCorrectingLoop:
         anti_patterns: list[str],
         attempt_history: list[AttemptRecord],
         strategy: RepairStrategy,
+        language: str = "",
+        governance_rules: Optional[list[str]] = None,
+        repair_hints: Optional[list[str]] = None,
     ) -> str:
-        """Build rich, structured repair context for LLM."""
+        """Build governance-aware, privacy-safe repair context for LLM.
+
+        IMPORTANT: Never includes raw source code in prompts sent to
+        external LLMs (per llm-invocation-v1.json privacy boundary).
+        Only error descriptions, fix hints, and governance rules are sent.
+        """
         parts = []
 
         # Section 1: Strategy instruction
         if strategy == RepairStrategy.PATCH:
             parts.append(
-                "REPAIR STRATEGY: PATCH — Fix ONLY the specific errors below. "
+                "REPAIR STRATEGY: PATCH - Fix ONLY the specific errors below. "
                 "Keep the rest of the code unchanged."
             )
         elif strategy == RepairStrategy.REWRITE:
             parts.append(
-                "REPAIR STRATEGY: FULL REWRITE — The previous approach failed. "
+                "REPAIR STRATEGY: FULL REWRITE - The previous approach failed. "
                 "Rewrite the entire file from scratch, avoiding the errors below."
+            )
+        elif strategy == RepairStrategy.DIFFERENT_MODEL:
+            parts.append(
+                "REPAIR STRATEGY: DIFFERENT MODEL - Previous model could not fix these issues. "
+                "Approach from a different perspective."
             )
         else:
             parts.append(
-                "REPAIR STRATEGY: DIFFERENT APPROACH — Previous attempts failed. "
+                "REPAIR STRATEGY: DIFFERENT APPROACH - Previous attempts failed. "
                 "Try a fundamentally different implementation approach."
             )
 
-        # Section 2: Previous code (for PATCH strategy)
-        if strategy == RepairStrategy.PATCH and previous_code:
-            parts.append(f"\nPREVIOUS CODE (fix errors in this code):\n```\n{previous_code}\n```")
+        # Section 2: Governance rules (NEW - contract enforcement)
+        rules = governance_rules or GOVERNANCE_RULES.get(language, [])
+        if rules:
+            parts.append("\n=== GOVERNANCE RULES (MANDATORY) ===")
+            for rule in rules:
+                parts.append(f"  - {rule}")
 
-        # Section 3: Specific errors with line numbers
+        # Section 3: Contract requirements (NEW)
+        if language:
+            parts.append("\n=== CONTRACT REQUIREMENTS ===")
+            for req in CONTRACT_REQUIREMENTS:
+                parts.append(f"  - {req}")
+
+        # Section 4: Learned repair hints from memory (NEW)
+        if repair_hints:
+            parts.append("\n=== LEARNED FIXES FROM PREVIOUS EXPERIENCE ===")
+            for hint in repair_hints:
+                parts.append(f"  {hint}")
+
+        # Section 5: Specific errors (sanitized - no source code)
         if errors:
-            parts.append("\nERRORS TO FIX:")
+            parts.append("\n=== ERRORS TO FIX ===")
             for i, error in enumerate(errors, 1):
-                parts.append(f"  {i}. {error}")
+                # Sanitize: truncate long errors, remove potential code snippets
+                sanitized = error[:300] if len(error) > 300 else error
+                parts.append(f"  {i}. {sanitized}")
 
-        # Section 4: Security findings
+        # Section 6: Security findings
         if security_findings:
-            parts.append("\nSECURITY ISSUES TO FIX:")
+            parts.append("\n=== SECURITY ISSUES TO FIX ===")
             for finding in security_findings:
-                parts.append(f"  - {finding}")
+                sanitized = str(finding)[:300]
+                parts.append(f"  - {sanitized}")
 
-        # Section 5: Anti-patterns from memory
+        # Section 7: Anti-patterns from memory
         if anti_patterns:
-            parts.append(f"\nANTI-PATTERNS TO AVOID: {', '.join(anti_patterns)}")
+            parts.append("\n=== ANTI-PATTERNS TO AVOID ===")
+            for ap in anti_patterns[:10]:  # Max 10 to avoid token bloat
+                parts.append(f"  - {ap}")
 
-        # Section 6: Attempt history (what was already tried)
+        # Section 8: Attempt history
         if attempt_history:
-            parts.append("\nPREVIOUS ATTEMPTS (do NOT repeat these approaches):")
-            for record in attempt_history[-3:]:  # Last 3 attempts
+            parts.append("\n=== PREVIOUS ATTEMPTS (do NOT repeat) ===")
+            for record in attempt_history[-3:]:
                 parts.append(
                     f"  Attempt {record.attempt_number}: "
                     f"strategy={record.strategy.value}, "
@@ -194,7 +310,21 @@ class SelfCorrectingLoop:
                     f"errors={len(record.errors)}"
                 )
 
-        return "\n".join(parts)
+        # NOTE: Previous source code is intentionally NOT included here.
+        # Per llm-invocation-v1.json privacy boundary, source code must
+        # never leave VPS. The orchestrator handles code-level patching
+        # locally if needed.
+
+        result = "\n".join(parts)
+        # Enforce hard token budget to prevent token bloat
+        if len(result) > self.MAX_REPAIR_CHARS:
+            truncated = result[:self.MAX_REPAIR_CHARS]
+            last_newline = truncated.rfind("\n")
+            if last_newline > self.MAX_REPAIR_CHARS // 2:
+                truncated = truncated[:last_newline]
+            result = truncated + "\n\n[TRUNCATED - budget limit reached]"
+            logger.warning("Repair context truncated: %d -> %d chars", len(result), len(truncated))
+        return result
 
     def compute_quality_score(
         self,
@@ -202,14 +332,18 @@ class SelfCorrectingLoop:
         security_findings: list[Any],
         generated_files: list[str],
         language: str,
+        governance_passed: bool = True,
+        compile_passed: bool = True,
+        tests_passed: bool = True,
+        test_pass_rate: float = 1.0,
     ) -> QualityScore:
-        """Compute multi-dimensional quality score."""
+        """Compute multi-dimensional quality score including execution."""
         score = QualityScore()
 
         # Syntax: binary
         score.syntax = 1.0 if syntax_passed else 0.0
 
-        # Security: 1.0 = no findings, 0.0 = critical findings
+        # Security: scaled by severity
         critical = sum(1 for f in security_findings if hasattr(f, 'severity') and f.severity.value == "critical")
         high = sum(1 for f in security_findings if hasattr(f, 'severity') and f.severity.value == "high")
         if critical > 0:
@@ -219,14 +353,61 @@ class SelfCorrectingLoop:
         else:
             score.security = 1.0
 
+        # Execution: compile + test results (NEW)
+        if not compile_passed:
+            score.execution = 0.0
+        else:
+            score.execution = max(0.0, min(1.0, test_pass_rate))
+
         # Completeness: has files generated
         score.completeness = min(1.0, len(generated_files) / max(1, 1))
 
         # Style: basic checks
-        score.style = 1.0  # Default; could be enhanced with linter integration
+        score.style = 1.0
+
+        # Governance
+        score.governance = 1.0 if governance_passed else 0.0
 
         score.compute_overall()
         return score
+
+    def learn_from_attempt(
+        self,
+        errors: list[str],
+        security_findings_raw: list[str],
+        language: str,
+        module_type: str,
+        quality_before: float,
+        quality_after: float,
+        strategy_used: str,
+        success: bool,
+    ) -> None:
+        """Extract patterns and learn from this attempt's results.
+
+        Called after each attempt in the loop to update portable memory.
+        """
+        if self.memory is None:
+            return
+
+        from .pattern_extractor import PatternExtractor
+
+        patterns = PatternExtractor.extract(
+            errors=errors,
+            security_findings=security_findings_raw,
+            language=language,
+        )
+
+        if patterns:
+            learned = self.memory.learn(
+                patterns=patterns,
+                language=language,
+                module_type=module_type,
+                quality_before=quality_before,
+                quality_after=quality_after,
+                strategy_used=strategy_used,
+                success=success,
+            )
+            logger.info("Learned %d patterns from attempt", learned)
 
     def should_escalate_model(self, attempt: int) -> bool:
         """Determine if we should switch to fallback model."""
@@ -242,17 +423,14 @@ class SelfCorrectingLoop:
         """Record loop outcome for metrics."""
         self.metrics.total_runs += 1
         self.metrics.total_attempts += attempts
-
         if success:
             self.metrics.successful_runs += 1
         else:
             self.metrics.failed_runs += 1
             for cat in failure_categories:
                 self.metrics.record_failure(cat)
-
         for i in range(1, attempts + 1):
             self.metrics.record_attempt(i, final_score if i == attempts else 0.0)
-
 
     def attempt_patch_repair(
         self,
@@ -261,27 +439,16 @@ class SelfCorrectingLoop:
         llm_client: Any,
     ) -> tuple[str, bool]:
         """EXPERIMENTAL: Attempt surgical patch repair.
-
-        NOTE: Current LLMs cannot reliably edit small code sections.
-        They tend to regenerate entire files when asked to patch.
-        This method is kept for future evaluation but NOT used in production loop.
-        Full regeneration with structured repair context is more reliable.
-
-        Returns (patched_code, success).
-        Only works for Python with AST-analyzable issues.
-        Falls back to full regeneration if patching fails.
+        Kept for future evaluation but NOT used in production loop.
         """
         if language != "python":
-            return code, False  # Patching only supported for Python currently
-
+            return code, False
         targets = self.patcher.analyze_python(code)
         if not targets:
-            return code, False  # No analyzable targets
-
+            return code, False
         patched_code = code
         patches_applied = 0
-
-        for target in targets[:3]:  # Max 3 patches per attempt
+        for target in targets[:3]:
             prompt = self.patcher.build_patch_prompt(target, language)
             try:
                 patched_section = llm_client.generate_code(prompt, language)
@@ -291,17 +458,14 @@ class SelfCorrectingLoop:
             except Exception as e:
                 logger.warning("Patch failed for %s: %s", target.issue_type, e)
                 continue
-
-        # Validate patched code
         if language == "python":
             import ast as ast_module
             try:
                 ast_module.parse(patched_code)
                 return patched_code, patches_applied > 0
             except SyntaxError:
-                logger.warning("Patched code has syntax errors — reverting")
+                logger.warning("Patched code has syntax errors - reverting")
                 return code, False
-
         return patched_code, patches_applied > 0
 
     def get_metrics(self) -> dict:

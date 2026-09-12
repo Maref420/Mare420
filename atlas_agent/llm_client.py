@@ -286,3 +286,66 @@ class LLMClient:
             raise RuntimeError(f"Security analysis failed: {e}") from e
         finally:
             self._request_semaphore.release()
+
+    def research_query(self, question: str) -> str:
+        """Send a knowledge/research query to the LLM.
+
+        Unlike generate_code(), this method:
+        - Uses higher temperature (0.7) for broader analytical responses
+        - Does NOT wrap the prompt in code generation instructions
+        - Is intended for gathering domain knowledge, not producing code
+        - Still passes through restriction guard to prevent IP leaks
+
+        Returns raw text response from the LLM.
+        """
+        if not self._circuit_breaker.allow_request(self.config):
+            raise RuntimeError("Circuit breaker OPEN")
+        self._check_rate_limit()
+
+        # Guard check: ensure no restricted content leaks externally
+        blocked = self._check_restricted_content(question)
+        if blocked:
+            raise PermissionError(
+                f"Research query blocked by §17 guard: {blocked}"
+            )
+
+        cached = self._cache.get(question, self.model, 0.7)
+        if cached is not None:
+            logger.info("Research cache HIT - skipping API call")
+            return cached
+
+        acquired = self._request_semaphore.acquire(
+            timeout=self.config.request_timeout_seconds
+        )
+        if not acquired:
+            raise RuntimeError("Max concurrent requests reached")
+        try:
+            try:
+                content = self._call_api(question, self.model, 0.7)
+            except RuntimeError as primary_err:
+                if self.fallback_model != self.model:
+                    logger.warning(
+                        "Primary %s failed (%s), trying fallback %s",
+                        self.model,
+                        type(primary_err).__name__,
+                        self.fallback_model,
+                    )
+                    try:
+                        content = self._call_api(
+                            question, self.fallback_model, 0.7
+                        )
+                    except RuntimeError as fallback_err:
+                        self._circuit_breaker.record_failure(self.config)
+                        raise RuntimeError(
+                            f"Both models failed. Primary: {primary_err}. "
+                            f"Fallback: {fallback_err}"
+                        ) from fallback_err
+                else:
+                    self._circuit_breaker.record_failure(self.config)
+                    raise
+            self._cache.put(question, self.model, 0.7, content)
+            self._circuit_breaker.record_success()
+            return content
+        finally:
+            self._request_semaphore.release()
+

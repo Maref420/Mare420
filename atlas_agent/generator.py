@@ -20,9 +20,9 @@ import re
 from typing import Any
 
 from .llm_client import LLMClient
-from .memory import Decision, LearningMemory
-from .memory.experience import Artifact as MemArtifact
-from .memory.experience import Method, Source
+from .self_correcting_loop import Decision, LearningMemory
+from .self_correcting_loop.experience import Artifact as MemArtifact
+from .self_correcting_loop.experience import Method, Source
 
 logger = logging.getLogger(__name__)
 
@@ -273,10 +273,48 @@ class GeneratorEngine:
         if lang == "rust":
             cargo_toml_path = os.path.join(target_dir, "Cargo.toml")
             if not os.path.exists(cargo_toml_path):
+                # Detect if generated code contains fn main → binary crate, else library
+                has_main = False
+                for rel in generated_files:
+                    if rel.endswith(".rs"):
+                        abs_rs = os.path.join(target_dir, rel)
+                        if os.path.exists(abs_rs):
+                            with open(abs_rs, "r", encoding="utf-8") as rf:
+                                if "fn main(" in rf.read():
+                                    has_main = True
+                                    break
+                safe_name = project_name.replace("-", "_")
+                target_section = ""
+                if has_main:
+                    # Find the actual main file path relative to project root
+                    main_file = "src/main.rs"
+                    for rel in generated_files:
+                        if rel.endswith(".rs"):
+                            abs_rs = os.path.join(target_dir, rel)
+                            if os.path.exists(abs_rs):
+                                with open(abs_rs, "r", encoding="utf-8") as rf:
+                                    if "fn main(" in rf.read():
+                                        main_file = rel
+                                        break
+                    target_section = (
+                        f'\n[[bin]]\nname = "{safe_name}"\n'
+                        f'path = "{main_file}"\n'
+                    )
+                else:
+                    lib_file = "src/lib.rs"
+                    for rel in generated_files:
+                        if rel.endswith(".rs"):
+                            lib_file = rel
+                            break
+                    target_section = (
+                        f'\n[lib]\nname = "{safe_name}"\n'
+                        f'path = "{lib_file}"\n'
+                    )
                 with open(cargo_toml_path, "w", encoding="utf-8") as f:
                     f.write(
                         f'[package]\nname = "{project_name}"\n'
                         f'version = "0.1.0"\nedition = "2021"\n'
+                        f'{target_section}'
                     )
             generated_files.append(os.path.relpath(cargo_toml_path, target_dir))
 

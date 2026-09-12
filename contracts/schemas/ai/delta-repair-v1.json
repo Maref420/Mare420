@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "type": "delta-repair-contract",
+  "purpose": "Schema for surgical code repair without full regeneration.",
+  "governance": {
+    "specification_id": "delta-repair-v1",
+    "owner": "atlas_agent_team",
+    "approval_date": "2026-09-11",
+    "references": ["portable-memory-v1.json", "root-cause-v1.json"]
+  },
+  "privacy_boundary": {
+    "may_send_to_llm": ["error_line_numbers", "error_messages_sanitized", "fix_directives"],
+    "must_never_send": ["full_source_code", "variable_names", "function_bodies", "business_logic"],
+    "sanitization_rules": [
+      "Replace project-specific identifiers with generic placeholders",
+      "Remove file paths from error messages",
+      "Strip comments and doc strings before analysis"
+    ]
+  },
+  "schema": {
+    "DeltaPatch": {
+      "target_file": {"type": "string"},
+      "operations": {
+        "type": "array",
+        "items": {
+          "op": {"type": "string", "enum": ["replace_lines", "insert_after", "delete_lines", "append"]},
+          "start_line": {"type": "integer"},
+          "end_line": {"type": "integer"},
+          "new_content": {"type": "string", "maxLength": 1024}
+        }
+      },
+      "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0}
+    }
+  }
+}
