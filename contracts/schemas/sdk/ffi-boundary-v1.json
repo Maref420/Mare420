@@ -1,5 +1,5 @@
 {
-  "version": "1.1",
+  "version": "1.2",
   "type": "ffi-contract",
   "purpose": "Define the Cross-Language Boundary between Python, Rust, and Go in Atlas AI SDK. Covers both FFI and Serialization-based interfaces.",
   "supported_languages": ["python", "rust", "go"],
@@ -30,6 +30,14 @@
       "transport": "serialization",
       "direction": "rust_to_python_and_go",
       "notes": "Uses scaled integers. Scale factors defined in configs/exchanges/."
+    },
+    {
+      "name": "DecisionGateway",
+      "operations": ["submit_proposal"],
+      "governed_by": "intelligence/contracts/unified_decision_proposal.py",
+      "transport": "serialization",
+      "direction": "python_to_control_plane_via_go_broker",
+      "notes": "AI Agents submit DecisionProposals. PROPOSAL != AUTHORIZATION. Control Plane must evaluate and return ALLOW/DENY/HOLD. Governed by Anti-Hallucination Matrix Rules 2-11."
     }
   ],
   "rules": {
@@ -45,7 +53,7 @@
   "ownership": {
     "owner": "SDK Team",
     "unauthorized_modification": "prohibited",
-    "last_updated": "2026-08-30",
-    "change_reason": "Added MarketDataFeed interface per ADR-2026-08-30-001"
+    "last_updated": "2026-09-20",
+    "change_reason": "Added DecisionGateway interface per Unified Decision Schema Architecture Upgrade Phase 3"
   }
 }

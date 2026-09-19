@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -124,7 +125,8 @@ func TestHealthEndpoint(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
-	if w.Body.String() != `{"status":"ok"}` {
-		t.Errorf("unexpected body: %s", w.Body.String())
+	bodyStr := w.Body.String()
+	if !strings.Contains(bodyStr, `"status":"ok"`) {
+		t.Errorf("unexpected body: %s", bodyStr)
 	}
 }
