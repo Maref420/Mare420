@@ -35,6 +35,7 @@ from intelligence.memory_system.procedural_memory.store import ProceduralMemoryS
 from intelligence.memory_system.retrieval_engine.engine import MemoryRetrievalEngine
 from intelligence.memory_system.semantic_memory.store import SemanticMemoryStore
 from intelligence.memory_system.storage.interface import MemoryStorage
+from intelligence.memory_system.storage.supabase_storage import SupabaseStorage
 from intelligence.memory_system.working_memory.store import WorkingMemoryStore
 
 logger = logging.getLogger(__name__)
@@ -73,8 +74,23 @@ class MemorySystem:
         self,
         storage: MemoryStorage | None = None,
         audit_sink: AuditSink | None = None,
+        supabase_url: str | None = None,
+        supabase_key: str | None = None,
     ) -> None:
-        self._storage = storage or InMemoryStorage()
+        # Priority: explicit storage > supabase credentials > in-memory fallback
+        if storage is not None:
+            self._storage = storage
+        elif supabase_url and supabase_key:
+            try:
+                self._storage = SupabaseStorage(
+                    supabase_url=supabase_url,
+                    supabase_key=supabase_key,
+                )
+            except Exception as e:
+                logger.warning(f"SUPABASE_INIT_FAILED_FALLBACK_TO_MEMORY: {e}")
+                self._storage = InMemoryStorage()
+        else:
+            self._storage = InMemoryStorage()
         self._audit_sink = audit_sink or InMemoryAuditSink()
         self._kernel = MemoryKernel(storage=self._storage)
         self._experience_engine = ExperienceEngine(
