@@ -65,6 +65,81 @@ services:
       - atlas_net
     restart: unless-stopped
 
+  # ─── PHASE 18 G4 ADDITIONS ──────────────────────────────────────
+  # Governed by: Rule 12 (Minimal Blast Radius) - Additive only
+  # These services extend the existing stack with persistent storage,
+  # event bus, and commercial observability without modifying any
+  # existing service definitions.
+
+  nats-broker:
+    image: nats:2.10-alpine
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "8222:8222"
+    command: ["--js", "--http_port", "8222"]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - atlas_net
+    restart: unless-stopped
+
+  postgres-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-atlas_secret_change_me}
+      POSTGRES_DB: atlas_memory
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - atlas_data:/var/lib/postgresql/data
+      - ../../scripts/init_db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas_memory"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - atlas_net
+    restart: unless-stopped
+
+  observability-api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.agent
+    ports:
+      - "${OBSERVABILITY_PORT:-8787}:8787"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+      - NATS_URL=nats://nats-broker:4222
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_KEY=${SUPABASE_KEY:-}
+      - OBSERVABILITY_PORT=8787
+    env_file:
+      - ../../.env
+    command: >
+      sh -c "python -c 'from intelligence.observability.api import start_server; start_server(host="0.0.0.0", port=8787)'"
+    networks:
+      - atlas_net
+    depends_on:
+      agent:
+        condition: service_started
+      nats-broker:
+        condition: service_healthy
+      postgres-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8787/api/v1/pipeline/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
 networks:
   atlas_net:
     driver: bridge
@@ -73,4 +148,6 @@ volumes:
   uds_socket:
     driver: local
   sqlite_data:
+    driver: local
+  atlas_data:
     driver: local
