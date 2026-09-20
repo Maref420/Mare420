@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlas AI — Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>
+        body { background: #0a0e17; font-family: 'Inter', system-ui, sans-serif; }
+        .glass { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(51, 65, 85, 0.5); }
+        .pulse-green { animation: pulse-green 2s infinite; }
+        @keyframes pulse-green { 0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 50% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); } }
+    </style>
+</head>
+<body class="min-h-screen text-slate-200 p-6" x-data="atlasDashboard()" x-init="init()">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-4">
+            <div class="w-3 h-3 rounded-full" :class="health.status === 'operational' ? 'bg-green-500 pulse-green' : 'bg-amber-500'"></div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Atlas AI <span class="text-slate-500 font-normal text-lg">Command Center</span></h1>
+        </div>
+        <div class="text-sm text-slate-500">Auto-refresh: 5s | Storage: <span x-text="health.storage_backend" class="text-cyan-400"></span></div>
+    </header>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+        <div class="glass rounded-xl p-5">
+            <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Total Memories</div>
+            <div class="text-3xl font-bold text-white" x-text="stats.total_records">0</div>
+        </div>
+        <div class="glass rounded-xl p-5">
+            <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Working</div>
+            <div class="text-3xl font-bold text-amber-400" x-text="stats.working_count">0</div>
+        </div>
+        <div class="glass rounded-xl p-5">
+            <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Episodic</div>
+            <div class="text-3xl font-bold text-blue-400" x-text="stats.episodic_count">0</div>
+        </div>
+        <div class="glass rounded-xl p-5">
+            <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Semantic</div>
+            <div class="text-3xl font-bold text-purple-400" x-text="stats.semantic_count">0</div>
+        </div>
+        <div class="glass rounded-xl p-5">
+            <div class="text-xs uppercase tracking-wider text-slate-500 mb-1">Procedural</div>
+            <div class="text-3xl font-bold text-emerald-400" x-text="stats.procedural_count">0</div>
+        </div>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Cancelled Signals Table -->
+        <div class="glass rounded-xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-700/50 flex justify-between items-center">
+                <h2 class="font-semibold text-white">Filtered Signals <span class="text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded-full">DENY/HOLD</span></h2>
+                <span class="text-xs text-slate-500" x-text="cancelled.length + ' records'"></span>
+            </div>
+            <div class="overflow-x-auto max-h-96">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs uppercase bg-slate-800/50 text-slate-400 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3">Symbol</th>
+                            <th class="px-4 py-3">Decision</th>
+                            <th class="px-4 py-3">Survival</th>
+                            <th class="px-4 py-3">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/30">
+                        <template x-for="sig in cancelled" :key="sig.memory_id">
+                            <tr class="hover:bg-slate-800/30 transition-colors">
+                                <td class="px-4 py-3 font-mono text-cyan-300" x-text="sig.symbol"></td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-0.5 rounded text-xs font-bold"
+                                          :class="sig.decision === 'DENY' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'"
+                                          x-text="sig.decision"></span>
+                                </td>
+                                <td class="px-4 py-3 font-mono" x-text="sig.survival_score.toFixed(2)"
+                                    :class="sig.survival_score < 0.5 ? 'text-red-400' : 'text-amber-400'"></td>
+                                <td class="px-4 py-3 text-slate-400 truncate max-w-[200px]" x-text="sig.reason"></td>
+                            </tr>
+                        </template>
+                        <tr x-show="cancelled.length === 0">
+                            <td colspan="4" class="px-4 py-8 text-center text-slate-600">No filtered signals yet</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Audit Trail Table -->
+        <div class="glass rounded-xl overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-700/50 flex justify-between items-center">
+                <h2 class="font-semibold text-white">Audit Trail <span class="text-xs text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded-full">Compliance</span></h2>
+                <span class="text-xs text-slate-500" x-text="audit.length + ' events'"></span>
+            </div>
+            <div class="overflow-x-auto max-h-96">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs uppercase bg-slate-800/50 text-slate-400 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3">Time</th>
+                            <th class="px-4 py-3">Type</th>
+                            <th class="px-4 py-3">Action</th>
+                            <th class="px-4 py-3">Result</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/30">
+                        <template x-for="evt in audit" :key="evt.event_id">
+                            <tr class="hover:bg-slate-800/30 transition-colors">
+                                <td class="px-4 py-3 font-mono text-xs text-slate-400" x-text="new Date(evt.timestamp).toLocaleTimeString()"></td>
+                                <td class="px-4 py-3 text-slate-300" x-text="evt.event_type"></td>
+                                <td class="px-4 py-3">
+                                    <span class="px-2 py-0.5 rounded text-xs"
+                                          :class="evt.action === 'completed' ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-500/20 text-slate-400'"
+                                          x-text="evt.action"></span>
+                                </td>
+                                <td class="px-4 py-3 font-bold"
+                                    :class="evt.result === 'success' ? 'text-green-400' : 'text-red-400'"
+                                    x-text="evt.result"></td>
+                            </tr>
+                        </template>
+                        <tr x-show="audit.length === 0">
+                            <td colspan="4" class="px-4 py-8 text-center text-slate-600">No audit events yet</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function atlasDashboard() {
+            return {
+                health: { status: 'standby', storage_backend: 'unknown' },
+                stats: { total_records: 0, working_count: 0, episodic_count: 0, semantic_count: 0, procedural_count: 0 },
+                cancelled: [],
+                audit: [],
+                async init() {
+                    await this.fetchAll();
+                    setInterval(() => this.fetchAll(), 5000);
+                },
+                async fetchAll() {
+                    await Promise.all([
+                        this.fetch('/api/v1/pipeline/health', 'health'),
+                        this.fetch('/api/v1/memory/stats', 'stats'),
+                        this.fetch('/api/v1/signals/cancelled?limit=20', 'cancelled'),
+                        this.fetch('/api/v1/audit/recent?limit=20', 'audit'),
+                    ]);
+                },
+                async fetch(url, target) {
+                    try {
+                        const res = await fetch(url);
+                        if (res.ok) this[target] = await res.json();
+                    } catch (e) { console.warn('Fetch failed:', url); }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
