@@ -24,14 +24,18 @@ from typing import Any
 from intelligence.agent_control_plane.audit.interface import AuditSink
 from intelligence.agent_control_plane.audit.memory_sink import InMemoryAuditSink
 from intelligence.memory_system.consolidation.engine import MemoryConsolidationEngine
+from intelligence.memory_system.episodic_memory.store import EpisodicMemoryStore
 from intelligence.memory_system.experience_engine.engine import ExperienceEngine
 from intelligence.memory_system.experience_engine.subscriber import ExperienceSubscriber
 from intelligence.memory_system.forgetting.engine import MemoryForgettingEngine
 from intelligence.memory_system.integration.context_injector import inject_memory_context
 from intelligence.memory_system.memory_kernel.kernel import MemoryKernel
 from intelligence.memory_system.models.memory_record import MemoryRecord
+from intelligence.memory_system.procedural_memory.store import ProceduralMemoryStore
 from intelligence.memory_system.retrieval_engine.engine import MemoryRetrievalEngine
+from intelligence.memory_system.semantic_memory.store import SemanticMemoryStore
 from intelligence.memory_system.storage.interface import MemoryStorage
+from intelligence.memory_system.working_memory.store import WorkingMemoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +86,10 @@ class MemorySystem:
         self._consolidation_engine = MemoryConsolidationEngine(kernel=self._kernel)
         self._retrieval_engine = MemoryRetrievalEngine(storage=self._storage)
         self._experience_subscriber = ExperienceSubscriber()
+        self._working_store = WorkingMemoryStore(kernel=self._kernel)
+        self._episodic_store = EpisodicMemoryStore(kernel=self._kernel)
+        self._semantic_store = SemanticMemoryStore(kernel=self._kernel)
+        self._procedural_store = ProceduralMemoryStore(kernel=self._kernel)
         logger.info("MEMORY_SYSTEM_INITIALIZED")
 
     @property
@@ -111,6 +119,23 @@ class MemorySystem:
     @property
     def audit_sink(self) -> AuditSink:
         return self._audit_sink
+
+
+    @property
+    def working_store(self) -> WorkingMemoryStore:
+        return self._working_store
+
+    @property
+    def episodic_store(self) -> EpisodicMemoryStore:
+        return self._episodic_store
+
+    @property
+    def semantic_store(self) -> SemanticMemoryStore:
+        return self._semantic_store
+
+    @property
+    def procedural_store(self) -> ProceduralMemoryStore:
+        return self._procedural_store
 
     def capture_execution_outcome(
         self,
@@ -175,6 +200,65 @@ class MemorySystem:
             logger.error(
                 "FORGETTING_CYCLE_FAILED",
                 extra={"memory_id": memory_id, "error": str(e)},
+            )
+            return False
+
+
+    def run_consolidation_cycle(
+        self,
+        source_memory_id: str,
+        operation_id: str,
+        agent_id: str,
+    ) -> bool:
+        """
+        Consolidate validated episodic memory into semantic knowledge.
+
+        Governed by:
+        - lifecycle-policy.yaml: consolidation elevates episodic to semantic
+        - ConsolidationEngine validates source is EPISODIC + VALIDATED
+        - NEVER writes directly to storage (routes through Kernel)
+
+        Args:
+            source_memory_id: ID of the episodic memory record to consolidate.
+            operation_id: Trace identifier for audit.
+            agent_id: Agent requesting consolidation.
+
+        Returns:
+            True if consolidation succeeded, False otherwise.
+        """
+        try:
+            source_record = self._kernel.retrieve(source_memory_id)
+            if source_record is None:
+                logger.warning(
+                    "CONSOLIDATION_SKIPPED",
+                    extra={"reason": "source_not_found", "memory_id": source_memory_id},
+                )
+                return False
+
+            result = self._consolidation_engine.consolidate(
+                source_record,
+                operation_id=operation_id,
+                agent_id=agent_id,
+            )
+            logger.info(
+                "CONSOLIDATION_COMPLETED",
+                extra={
+                    "source_id": source_memory_id,
+                    "semantic_id": result.memory_id,
+                    "operation_id": operation_id,
+                },
+            )
+            return True
+        except ValueError as e:
+            logger.warning(
+                "CONSOLIDATION_REJECTED",
+                extra={"memory_id": source_memory_id, "reason": str(e)},
+            )
+            return False
+        except Exception as e:
+            logger.error(
+                "CONSOLIDATION_FAILED",
+                extra={"memory_id": source_memory_id, "error": str(e)},
             )
             return False
 
