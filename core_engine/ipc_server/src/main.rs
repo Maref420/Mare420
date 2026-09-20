@@ -10,6 +10,7 @@
 #![deny(clippy::panic)]
 
 use atlas_risk_engine::assessment::{assess_order, RiskConfig};
+use atlas_prob_algebra::{process_algebra_request, AlgebraRequest};
 use atlas_risk_engine::types::RiskAssessment;
 use uuid::Uuid;
 use log::{error, info, warn};
@@ -84,6 +85,24 @@ fn write_frame(stream: &mut impl Write, payload: &[u8]) -> io::Result<()> {
 }
 
 fn process_request(input: Value) -> Value {
+    // Route based on request_type field (additive dispatch)
+    if let Some(req_type) = input.get("request_type").and_then(|v| v.as_str()) {
+        if req_type == "prob_algebra" {
+            let algebra_req: AlgebraRequest = match serde_json::from_value(input) {
+                Ok(r) => r,
+                Err(e) => return serde_json::json!({"success": false, "error": format!("invalid algebra request: {e}")}),
+            };
+            return match process_algebra_request(&algebra_req) {
+                Ok(resp) => match serde_json::to_value(resp) {
+                    Ok(v) => v,
+                    Err(e) => serde_json::json!({"success": false, "error": format!("serialization: {e}")}),
+                },
+                Err(e) => serde_json::json!({"success": false, "error": format!("{e}")}),
+            };
+        }
+    }
+
+    // Existing risk assessment route (untouched)
     let req: RiskRequest = match serde_json::from_value(input.clone()) {
         Ok(r) => r,
         Err(e) => {
