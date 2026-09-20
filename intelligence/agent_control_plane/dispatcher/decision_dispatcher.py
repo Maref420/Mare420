@@ -7,6 +7,7 @@ Governed by: ATLAS Protocol Rule 12 (Minimal Blast Radius).
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 import uuid
 from datetime import UTC, datetime
@@ -26,6 +27,7 @@ from intelligence.contracts.unified_decision_proposal import (
     EpistemicStatus,
 )
 from intelligence.integration_bridge.nats_publisher import NATSPublisher
+from intelligence.memory_system.integration.pipeline_hook import PipelineGovernanceHook
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +69,13 @@ async def dispatch_approved_decision(
                 "reason": "not_authorized_for_execution",
             },
         )
+        # Persist cancellation to memory for future learning
+        with contextlib.suppress(Exception):
+            PipelineGovernanceHook.persist_cancellation(
+                proposal=proposal,
+                decision=decision,
+                reason="not_authorized_for_execution",
+            )
         return True
 
     ts_ns = int(datetime.now(UTC).timestamp() * 1e9)
