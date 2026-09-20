@@ -27,6 +27,7 @@ from intelligence.agent_control_plane.policy.decision_evaluator import (
     PolicyDecision,
 )
 from intelligence.contracts.unified_decision_proposal import DecisionProposal
+from intelligence.memory_system.integration.outcome_bridge import OutcomeBridgeSubscriber
 from intelligence.memory_system.models.memory_record import (
     MemoryRecord,
     MemoryType,
@@ -47,6 +48,7 @@ class PipelineGovernanceHook:
     _instance: PipelineGovernanceHook | None = None
     _memory_system: MemorySystem | None = None
     _initialized: bool = False
+    _outcome_bridge: OutcomeBridgeSubscriber | None = None
 
     @classmethod
     def initialize(cls, **kwargs: Any) -> PipelineGovernanceHook:
@@ -226,25 +228,62 @@ class PipelineGovernanceHook:
             )
 
     @classmethod
-    async def start_outcome_listener(cls) -> bool:
+    async def start_outcome_listener(
+        cls, nats_url: str = "nats://localhost:4222"
+    ) -> bool:
         """
         INTERCEPTION POINT 3: Write-After-Execute.
-        Verifies ExperienceSubscriber availability for NATS outcome capture.
+        Starts OutcomeBridgeSubscriber connecting NATS to ExperienceEngine.
         """
         if cls._memory_system is None:
             logger.warning("OUTCOME_LISTENER_SKIPPED: MemorySystem not initialized")
             return False
 
-        with contextlib.suppress(Exception):
-            _ = cls._memory_system.experience_subscriber
-            logger.info("OUTCOME_LISTENER_READY: ExperienceSubscriber available")
+        if cls._outcome_bridge is not None:
+            logger.info("OUTCOME_LISTENER_ALREADY_RUNNING")
             return True
 
-        return False
+        try:
+            cls._outcome_bridge = OutcomeBridgeSubscriber(
+                experience_engine=cls._memory_system.experience_engine,
+                nats_url=nats_url,
+                topic="atlas.execution.outcome.v1",
+            )
+            connected = await cls._outcome_bridge.start()
+            if connected:
+                logger.info("OUTCOME_BRIDGE_STARTED")
+                return True
+            else:
+                logger.warning("OUTCOME_BRIDGE_NATS_CONNECTION_FAILED")
+                cls._outcome_bridge = None
+                return False
+        except Exception as e:
+            logger.error(f"OUTCOME_BRIDGE_START_FAILED: {e}")
+            cls._outcome_bridge = None
+            return False
+
+    @classmethod
+    async def stop_outcome_listener(cls) -> None:
+        """Gracefully stop the outcome bridge subscriber."""
+        if cls._outcome_bridge is not None:
+            with contextlib.suppress(Exception):
+                await cls._outcome_bridge.stop()
+            cls._outcome_bridge = None
+            logger.info("OUTCOME_BRIDGE_STOPPED")
+
+    @classmethod
+    async def shutdown_async(cls) -> None:
+        """Graceful async shutdown including outcome listener."""
+        await cls.stop_outcome_listener()
+        if cls._memory_system is not None:
+            cls._memory_system.shutdown()
+            cls._initialized = False
+            cls._instance = None
+            logger.info("PIPELINE_GOVERNANCE_HOOK_SHUTDOWN")
 
     @classmethod
     def shutdown(cls) -> None:
-        """Graceful shutdown of memory system."""
+        """Synchronous shutdown wrapper."""
         if cls._memory_system is not None:
             cls._memory_system.shutdown()
             cls._initialized = False
